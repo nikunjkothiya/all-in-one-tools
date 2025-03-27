@@ -1,4 +1,4 @@
-const { validationResult } = require('express-validator');
+import { validationResult } from 'express-validator';
 
 const errorHandler = (err, req, res, next) => {
     console.error(err.stack);
@@ -39,4 +39,4 @@ const errorHandler = (err, req, res, next) => {
     });
 };
 
-module.exports = errorHandler; 
+export default errorHandler; 

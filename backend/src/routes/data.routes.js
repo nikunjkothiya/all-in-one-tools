@@ -5,25 +5,58 @@ import { createObjectCsvWriter } from 'csv-writer';
 import fs from 'fs';
 import path from 'path';
 import { Readable } from 'stream';
+import yaml from 'js-yaml';
+import xml2js from 'xml2js';
+import { promisify } from 'util';
 
 const router = express.Router();
+const parseXml = promisify(xml2js.parseString);
+const xmlBuilder = new xml2js.Builder();
 
-// Data format converter endpoint
-router.post(
-    '/convert',
-    [
-        body('data').notEmpty().withMessage('Data is required'),
-        body('fromFormat').isIn(['json', 'csv']).withMessage('Invalid from format'),
-        body('toFormat').isIn(['json', 'csv']).withMessage('Invalid to format'),
-    ],
-    async (req, res) => {
-        try {
-            const { data, fromFormat, toFormat } = req.body;
+// Helper functions for data conversion
+const parseInput = async (data, format) => {
+    try {
+        switch (format) {
+            case 'json':
+                return JSON.parse(data);
+            case 'yaml':
+                return yaml.load(data);
+            case 'xml':
+                return await parseXml(data);
+            case 'csv':
+                const results = [];
+                const csvStream = Readable.from(data);
+                await new Promise((resolve, reject) => {
+                    csvStream
+                        .pipe(csv())
+                        .on('data', (data) => results.push(data))
+                        .on('end', resolve)
+                        .on('error', reject);
+                });
+                return results;
+            default:
+                throw new Error(`Unsupported input format: ${format}`);
+        }
+    } catch (error) {
+        throw new Error(`Error parsing ${format.toUpperCase()}: ${error.message}`);
+    }
+};
 
-            if (fromFormat === 'json' && toFormat === 'csv') {
-                const jsonData = JSON.parse(data);
+const convertToFormat = async (data, format) => {
+    try {
+        switch (format) {
+            case 'json':
+                return JSON.stringify(data, null, 2);
+            case 'yaml':
+                return yaml.dump(data);
+            case 'xml':
+                return xmlBuilder.buildObject(data);
+            case 'csv':
+                if (!Array.isArray(data)) {
+                    data = [data];
+                }
                 const outputPath = path.join('uploads', `converted_${Date.now()}.csv`);
-                const csvHeaders = Object.keys(jsonData[0]).map(key => ({
+                const csvHeaders = Object.keys(data[0]).map(key => ({
                     id: key,
                     title: key
                 }));
@@ -33,26 +66,41 @@ router.post(
                     header: csvHeaders
                 });
 
-                await csvWriter.writeRecords(jsonData);
+                await csvWriter.writeRecords(data);
                 const csvContent = fs.readFileSync(outputPath, 'utf-8');
                 fs.unlinkSync(outputPath);
-                res.json({ converted: csvContent });
-            } else if (fromFormat === 'csv' && toFormat === 'json') {
-                const results = [];
-                const csvStream = Readable.from(data);
+                return csvContent;
+            default:
+                throw new Error(`Unsupported output format: ${format}`);
+        }
+    } catch (error) {
+        throw new Error(`Error converting to ${format.toUpperCase()}: ${error.message}`);
+    }
+};
 
-                await new Promise((resolve, reject) => {
-                    csvStream
-                        .pipe(csv())
-                        .on('data', (data) => results.push(data))
-                        .on('end', resolve)
-                        .on('error', reject);
-                });
+// Data format converter endpoint
+router.post(
+    '/convert',
+    [
+        body('data').notEmpty().withMessage('Data is required'),
+        body('format').isIn(['json', 'xml', 'csv', 'yaml']).withMessage('Invalid input format'),
+        body('targetFormat').isIn(['json', 'xml', 'csv', 'yaml']).withMessage('Invalid target format'),
+    ],
+    async (req, res) => {
+        try {
+            const { data, format, targetFormat } = req.body;
 
-                res.json({ converted: JSON.stringify(results) });
-            } else {
-                res.status(400).json({ error: 'Unsupported conversion' });
+            if (format === targetFormat) {
+                return res.status(400).json({ error: 'Input and target formats are the same' });
             }
+
+            // Parse input data
+            const parsedData = await parseInput(data, format);
+
+            // Convert to target format
+            const converted = await convertToFormat(parsedData, targetFormat);
+
+            res.json({ converted });
         } catch (error) {
             res.status(400).json({ error: error.message });
         }
@@ -64,31 +112,19 @@ router.post(
     '/validate',
     [
         body('data').notEmpty().withMessage('Data is required'),
-        body('format').isIn(['json', 'csv']).withMessage('Invalid format'),
+        body('format').isIn(['json', 'xml', 'csv', 'yaml']).withMessage('Invalid format'),
     ],
     async (req, res) => {
         try {
             const { data, format } = req.body;
-
-            if (format === 'json') {
-                JSON.parse(data);
-                res.json({ valid: true });
-            } else if (format === 'csv') {
-                const results = [];
-                const csvStream = Readable.from(data);
-
-                await new Promise((resolve, reject) => {
-                    csvStream
-                        .pipe(csv())
-                        .on('data', (data) => results.push(data))
-                        .on('end', resolve)
-                        .on('error', reject);
-                });
-
-                res.json({ valid: true });
-            }
+            await parseInput(data, format);
+            res.json({ valid: true, message: `Valid ${format.toUpperCase()} format` });
         } catch (error) {
-            res.json({ valid: false, errors: [error.message] });
+            res.json({
+                valid: false,
+                errors: [error.message],
+                message: `Invalid ${format.toUpperCase()} format`
+            });
         }
     }
 );
@@ -98,32 +134,20 @@ router.post(
     '/transform',
     [
         body('data').notEmpty().withMessage('Data is required'),
-        body('template').notEmpty().withMessage('Template is required'),
+        body('format').isIn(['json', 'xml', 'csv', 'yaml']).withMessage('Invalid format'),
     ],
     async (req, res) => {
         try {
-            const { data, template } = req.body;
-            const jsonData = JSON.parse(data);
+            const { data, format } = req.body;
 
-            const transformed = jsonData.map(item => {
-                try {
-                    return template.replace(/{{(\w+)}}/g, (match, key) => {
-                        if (!(key in item)) {
-                            throw new Error('Invalid template variables');
-                        }
-                        return item[key] || '';
-                    });
-                } catch (error) {
-                    throw new Error('Invalid template variables');
-                }
-            });
+            // Parse the input
+            const parsedData = await parseInput(data, format);
 
-            res.status(200).json({ transformed });
+            // Convert back to the same format but beautified
+            const transformed = await convertToFormat(parsedData, format);
+
+            res.json({ transformed });
         } catch (error) {
-            // Check if the error is due to invalid template variables
-            if (error.message === 'Invalid template variables') {
-                return res.status(400).json({ error: error.message });
-            }
             res.status(400).json({ error: error.message });
         }
     }

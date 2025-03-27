@@ -1,8 +1,17 @@
-const express = require('express');
-const cors = require('cors');
-const dotenv = require('dotenv');
-const connectDB = require('./config/db');
-const errorHandler = require('./middleware/errorHandler');
+import express from 'express';
+import cors from 'cors';
+import dotenv from 'dotenv';
+import { connectDB } from './config/db.js';
+import errorHandler from './middleware/errorHandler.js';
+import textRoutes from './routes/text.routes.js';
+import imageRoutes from './routes/image.routes.js';
+import pdfRoutes from './routes/pdf.routes.js';
+import developerRoutes from './routes/developer.routes.js';
+import fileRoutes from './routes/file.routes.js';
+import mediaRoutes from './routes/media.routes.js';
+import webRoutes from './routes/web.routes.js';
+import dataRoutes from './routes/data.routes.js';
+import privacyRoutes from './routes/privacy.routes.js';
 
 // Load environment variables
 dotenv.config();
@@ -18,16 +27,16 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Routes
-app.use('/api/text', require('./routes/text.routes'));
-app.use('/api/image', require('./routes/image.routes'));
-app.use('/api/pdf', require('./routes/pdf.routes'));
-app.use('/api/developer', require('./routes/developer.routes'));
-app.use('/api/file', require('./routes/file.routes'));
-app.use('/api/media', require('./routes/media.routes'));
-app.use('/api/web', require('./routes/web.routes'));
-app.use('/api/data', require('./routes/data.routes'));
-app.use('/api/privacy', require('./routes/privacy.routes'));
+// Mount routes
+app.use('/api/text', textRoutes);
+app.use('/api/image', imageRoutes);
+app.use('/api/pdf', pdfRoutes);
+app.use('/api/developer', developerRoutes);
+app.use('/api/file', fileRoutes);
+app.use('/api/media', mediaRoutes);
+app.use('/api/web', webRoutes);
+app.use('/api/data', dataRoutes);
+app.use('/api/privacy', privacyRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {

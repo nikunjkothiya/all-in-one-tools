@@ -156,9 +156,12 @@ export const mediaToolsApi = {
 
 // Web Tools API
 export const webToolsApi = {
-    analyzeSeo: (url) => api.post('/web/seo', { url }),
-    checkLinks: (url) => api.post('/web/check-links', { url }),
-    takeScreenshot: (url) => api.post('/web/screenshot', { url }),
+    takeScreenshot: (url) =>
+        api.post('/web/screenshot', { url }),
+    analyzeSeo: (url) =>
+        api.post('/web/seo', { url }),
+    checkLinks: (url) =>
+        api.post('/web/check-links', { url }),
     generateFavicon: (formData) =>
         api.post('/web/favicon', formData, {
             headers: {
@@ -169,7 +172,14 @@ export const webToolsApi = {
 
 // Data Tools API
 export const dataToolsApi = {
-    generateQrCode: (data) => api.post('/data/qr-code', { data }),
+    convertData: (data, format, targetFormat) =>
+        api.post('/data/convert', { data, format, targetFormat }),
+    validateData: (data, format) =>
+        api.post('/data/validate', { data, format }),
+    transformData: (data, format) =>
+        api.post('/data/transform', { data, format }),
+    generateQrCode: (data) =>
+        api.post('/data/qr-code', { data }),
     readBarcode: (formData) =>
         api.post('/data/read-barcode', formData, {
             headers: {
@@ -182,7 +192,8 @@ export const dataToolsApi = {
                 'Content-Type': 'multipart/form-data',
             },
         }),
-    visualizeData: (data) => api.post('/data/visualize', { data }),
+    visualizeData: (data) =>
+        api.post('/data/visualize', { data }),
 };
 
 // Privacy Tools API
@@ -196,6 +207,12 @@ export const privacyToolsApi = {
                 'Content-Type': 'multipart/form-data',
             },
         }),
+    hashPassword: (password, algorithm) =>
+        api.post('/privacy/hash', { password, algorithm }),
+    encryptText: (text, algorithm, key) =>
+        api.post('/privacy/encrypt', { text, algorithm, key }),
+    decryptText: (text, key, algorithm, iv) =>
+        api.post('/privacy/decrypt', { text, key, algorithm, iv }),
 };
 
 export default api; 

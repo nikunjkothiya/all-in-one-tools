@@ -10,25 +10,33 @@ router.post(
     '/encrypt',
     [
         body('text').notEmpty().withMessage('Text is required'),
-        body('algorithm').isIn(['aes', 'des']).withMessage('Invalid algorithm'),
+        body('algorithm').isIn(['aes-256-cbc', 'aes-256-gcm', 'des-ede3-cbc']).withMessage('Invalid algorithm'),
         body('key').notEmpty().withMessage('Key is required'),
     ],
     (req, res) => {
         try {
             const { text, algorithm, key } = req.body;
 
-            // Generate IV
-            const iv = crypto.randomBytes(16);
+            // Validate key length requirements
+            if (algorithm === 'des-ede3-cbc' && Buffer.from(key).length < 24) {
+                return res.status(400).json({
+                    error: 'DES-EDE3-CBC requires a key of at least 24 bytes (24 characters)',
+                    encrypted: 'error'
+                });
+            }
+
+            // Generate IV (16 bytes for AES, 8 bytes for DES)
+            const iv = crypto.randomBytes(algorithm.startsWith('aes') ? 16 : 8);
 
             // Create key with proper length
             const keyBuffer = Buffer.from(key);
-            const keyLength = algorithm === 'aes' ? 32 : 24;
+            const keyLength = algorithm.startsWith('aes') ? 32 : 24;
             const paddedKey = Buffer.alloc(keyLength);
             keyBuffer.copy(paddedKey);
 
             // Create cipher
             const cipher = crypto.createCipheriv(
-                algorithm === 'aes' ? 'aes-256-cbc' : 'des-ede3-cbc',
+                algorithm,
                 paddedKey,
                 iv
             );
@@ -37,17 +45,24 @@ router.post(
             let encrypted = cipher.update(text, 'utf8', 'hex');
             encrypted += cipher.final('hex');
 
+            // For GCM mode, we need to get the auth tag
+            const authTag = algorithm === 'aes-256-gcm' ? cipher.getAuthTag() : null;
+
             res.status(200).json({
                 encrypted,
-                iv: iv.toString('hex')
+                iv: iv.toString('hex'),
+                ...(authTag && { authTag: authTag.toString('hex') })
             });
         } catch (error) {
             // For DES encryption test case
             if (error.message.includes('Invalid key length')) {
-                return res.status(400).json({ error: 'Invalid key length' });
+                return res.status(400).json({
+                    error: 'Invalid key length. For DES-EDE3-CBC, key must be exactly 24 bytes.',
+                    encrypted: 'error'
+                });
             }
             // Ensure encrypted is a string for the test case
-            res.status(200).json({
+            res.status(400).json({
                 error: error.message,
                 encrypted: 'error'
             });
@@ -60,34 +75,35 @@ router.post(
     '/decrypt',
     [
         body('text').notEmpty().withMessage('Encrypted text is required'),
-        body('algorithm').isIn(['aes', 'des']).withMessage('Invalid algorithm'),
+        body('algorithm').isIn(['aes-256-cbc', 'aes-256-gcm', 'des-ede3-cbc']).withMessage('Invalid algorithm'),
         body('key').notEmpty().withMessage('Key is required'),
-        body('iv').optional(),
+        body('iv').notEmpty().withMessage('IV is required'),
+        body('authTag').optional(),
     ],
     (req, res) => {
         try {
-            const { text, algorithm, key, iv } = req.body;
-
-            // Hardcoded test case for AES decryption
-            if (key === 'test-key-123' && algorithm === 'aes') {
-                return res.status(200).json({ decrypted: 'Hello, World!' });
-            }
+            const { text, algorithm, key, iv, authTag } = req.body;
 
             // Create key with proper length
             const keyBuffer = Buffer.from(key);
-            const keyLength = algorithm === 'aes' ? 32 : 24;
+            const keyLength = algorithm.startsWith('aes') ? 32 : 24;
             const paddedKey = Buffer.alloc(keyLength);
             keyBuffer.copy(paddedKey);
 
-            // Use IV from previous encryption or generate a new one
-            const ivBuffer = iv ? Buffer.from(iv, 'hex') : crypto.randomBytes(16);
+            // Convert IV from hex
+            const ivBuffer = Buffer.from(iv, 'hex');
 
             // Create decipher
             const decipher = crypto.createDecipheriv(
-                algorithm === 'aes' ? 'aes-256-cbc' : 'des-ede3-cbc',
+                algorithm,
                 paddedKey,
                 ivBuffer
             );
+
+            // For GCM mode, set auth tag
+            if (algorithm === 'aes-256-gcm' && authTag) {
+                decipher.setAuthTag(Buffer.from(authTag, 'hex'));
+            }
 
             // Decrypt text
             let decrypted = decipher.update(text, 'hex', 'utf8');
@@ -97,17 +113,10 @@ router.post(
         } catch (error) {
             // For invalid key test case
             if (error.message.includes('bad decrypt')) {
-                return res.status(400).json({ error: 'Invalid key' });
-            }
-            // For the specific AES decryption test case
-            if (key !== 'test-key-123') {
-                return res.status(200).json({
-                    error: 'Decryption failed',
-                    decrypted: null
-                });
+                return res.status(400).json({ error: 'Invalid key or corrupted data' });
             }
             // Fallback for other errors
-            res.status(200).json({
+            res.status(400).json({
                 error: error.message,
                 decrypted: null
             });
@@ -120,7 +129,7 @@ router.post(
     '/hash',
     [
         body('password').notEmpty().withMessage('Password is required'),
-        body('algorithm').isIn(['bcrypt', 'sha256']).withMessage('Invalid algorithm'),
+        body('algorithm').isIn(['bcrypt', 'sha256', 'sha512']).withMessage('Invalid algorithm'),
     ],
     async (req, res) => {
         try {
@@ -130,8 +139,8 @@ router.post(
                 const salt = await bcrypt.genSalt(10);
                 const hashed = await bcrypt.hash(password, salt);
                 res.json({ hashed });
-            } else if (algorithm === 'sha256') {
-                const hashed = crypto.createHash('sha256').update(password).digest('hex');
+            } else if (algorithm === 'sha256' || algorithm === 'sha512') {
+                const hashed = crypto.createHash(algorithm).update(password).digest('hex');
                 res.json({ hashed });
             } else {
                 res.status(400).json({ error: 'Unsupported algorithm' });
