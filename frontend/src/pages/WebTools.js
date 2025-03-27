@@ -166,7 +166,7 @@ const WebTools = () => {
         if (item.name) return item.name;
         if (item.label) return item.label;
 
-        // For other objects, try to extract meaningful information
+        // For other objects, extract meaningful information
         const possibleProps = ['title', 'description', 'displayValue', 'snippet'];
         for (const prop of possibleProps) {
             if (item[prop]) return item[prop];
