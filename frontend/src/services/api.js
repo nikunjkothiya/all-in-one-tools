@@ -55,19 +55,45 @@ export const imageToolsApi = {
 
 // PDF Tools API
 export const pdfToolsApi = {
-  mergePdfs: (formData) =>
-    api.post("/pdf/merge", formData, {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
-    }),
-  splitPdf: (formData, pages) =>
-    api.post("/pdf/split", formData, {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
-      params: { pages },
-    }),
+  splitPDF: async (formData) => {
+    try {
+      const response = await api.post("/pdf/split", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.error || "Failed to split PDF");
+    }
+  },
+
+  mergePDF: async (formData) => {
+    try {
+      const response = await api.post("/pdf/merge", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.error || "Failed to merge PDFs");
+    }
+  },
+
+  editPDF: async (formData) => {
+    try {
+      const response = await api.post("/pdf/edit", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.error || "Failed to edit PDF");
+    }
+  },
+
   addText: (formData) =>
     api.post("/pdf/add-text", formData, {
       headers: {
@@ -80,13 +106,34 @@ export const pdfToolsApi = {
         "Content-Type": "multipart/form-data",
       },
     }),
-  protectPdf: (formData, password) =>
-    api.post("/pdf/protect", formData, {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
-      params: { password },
-    }),
+  protectPdf: async (formData) => {
+    try {
+      const response = await api.post("/pdf/protect", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+      return response.data;
+    } catch (error) {
+      if (error.response?.data?.error) {
+        throw new Error(error.response.data.error);
+      }
+      throw new Error("Failed to protect PDF");
+    }
+  },
+
+  downloadPdf: async (url) => {
+    try {
+      const response = await api.get(url, {
+        responseType: "blob",
+      });
+
+      const blob = new Blob([response.data], { type: "application/pdf" });
+      return URL.createObjectURL(blob);
+    } catch (error) {
+      throw new Error("Failed to download PDF");
+    }
+  },
 };
 
 // Developer Tools API
