@@ -241,22 +241,227 @@ router.post("/encode", [body("text").notEmpty().withMessage("Text is required"),
   }
 });
 
+const characterSetExplanations = {
+  "\\d": "Matches any digit (0-9)",
+  "\\D": "Matches any non-digit character",
+  "\\w": "Matches any word character (alphanumeric & underscore)",
+  "\\W": "Matches any non-word character",
+  "\\s": "Matches any whitespace character (space, tab, newline)",
+  "\\S": "Matches any non-whitespace character",
+  "\\b": "Matches a word boundary",
+  "\\B": "Matches a non-word boundary",
+  "[A-Z]": "Matches any uppercase letter from A to Z",
+  "[a-z]": "Matches any lowercase letter from a to z",
+  "[0-9]": "Matches any digit from 0 to 9",
+  "[A-Za-z]": "Matches any letter (case-sensitive)",
+  "[^]": "Matches any character except those in brackets",
+};
+
+const quantifierExplanations = {
+  "*": "Matches 0 or more times",
+  "+": "Matches 1 or more times",
+  "?": "Matches 0 or 1 time",
+  "{n}": "Matches exactly n times",
+  "{n,}": "Matches n or more times",
+  "{n,m}": "Matches between n and m times",
+};
+
+const anchorExplanations = {
+  "^": "Start of string or line",
+  $: "End of string or line",
+  "\\A": "Start of string",
+  "\\Z": "End of string",
+};
+
+const groupExplanations = {
+  "(...)": "Capturing group",
+  "(?:...)": "Non-capturing group",
+  "(?=...)": "Positive lookahead",
+  "(?!...)": "Negative lookahead",
+  "(?<=...)": "Positive lookbehind",
+  "(?<!...)": "Negative lookbehind",
+};
+
+const explainRegex = (pattern) => {
+  const parts = [];
+  let inCharacterClass = false;
+  let currentClass = "";
+  let inGroup = false;
+  let currentGroup = "";
+  let escaped = false;
+  let quantifier = "";
+
+  const addExplanation = (char, type) => {
+    let explanation = "";
+
+    if (type === "characterClass") {
+      if (characterSetExplanations[char]) {
+        explanation = characterSetExplanations[char];
+      } else {
+        explanation = `Character set: ${char}`;
+      }
+    } else if (type === "quantifier") {
+      if (quantifierExplanations[char]) {
+        explanation = quantifierExplanations[char];
+      } else {
+        explanation = `Quantifier: ${char}`;
+      }
+    } else if (type === "anchor") {
+      if (anchorExplanations[char]) {
+        explanation = anchorExplanations[char];
+      }
+    } else if (type === "group") {
+      if (groupExplanations[char]) {
+        explanation = groupExplanations[char];
+      }
+    }
+
+    if (explanation) {
+      parts.push({
+        pattern: char,
+        explanation,
+        type,
+      });
+    }
+  };
+
+  for (let i = 0; i < pattern.length; i++) {
+    const char = pattern[i];
+
+    if (escaped) {
+      if ("dDwWsSbB".includes(char)) {
+        addExplanation("\\" + char, "characterClass");
+      } else {
+        parts.push({
+          pattern: "\\" + char,
+          explanation: `Matches the literal character "${char}"`,
+          type: "escaped",
+        });
+      }
+      escaped = false;
+      continue;
+    }
+
+    if (char === "\\") {
+      escaped = true;
+      continue;
+    }
+
+    if (char === "[" && !inCharacterClass) {
+      inCharacterClass = true;
+      currentClass = "[";
+      continue;
+    }
+
+    if (char === "]" && inCharacterClass) {
+      currentClass += "]";
+      addExplanation(currentClass, "characterClass");
+      inCharacterClass = false;
+      currentClass = "";
+      continue;
+    }
+
+    if (inCharacterClass) {
+      currentClass += char;
+      continue;
+    }
+
+    if (char === "(" && !inGroup) {
+      inGroup = true;
+      currentGroup = "(";
+      continue;
+    }
+
+    if (char === ")" && inGroup) {
+      currentGroup += ")";
+      addExplanation(currentGroup, "group");
+      inGroup = false;
+      currentGroup = "";
+      continue;
+    }
+
+    if (inGroup) {
+      currentGroup += char;
+      continue;
+    }
+
+    if ("*+?{".includes(char)) {
+      quantifier = char;
+      if (char === "{") {
+        while (i + 1 < pattern.length && pattern[i + 1] !== "}") {
+          quantifier += pattern[++i];
+        }
+        if (i + 1 < pattern.length) {
+          quantifier += pattern[++i]; // add the closing '}'
+        }
+      }
+      addExplanation(quantifier, "quantifier");
+      continue;
+    }
+
+    if ("^$".includes(char)) {
+      addExplanation(char, "anchor");
+      continue;
+    }
+
+    if (!".*+?{}()[]\\|".includes(char)) {
+      parts.push({
+        pattern: char,
+        explanation: `Matches the literal character "${char}"`,
+        type: "literal",
+      });
+    }
+  }
+
+  return parts;
+};
+
 // Regex tester endpoint
-router.post("/regex", [body("text").notEmpty().withMessage("Text is required"), body("pattern").notEmpty().withMessage("Pattern is required")], validateRequest, (req, res) => {
+router.post("/regex", [body("text").notEmpty().withMessage("Text is required"), body("pattern").notEmpty().withMessage("Pattern is required"), body("flags").optional().isString().withMessage("Invalid flags")], validateRequest, (req, res) => {
   try {
-    const { text, pattern } = req.body;
+    const { text, pattern, flags = "g" } = req.body;
     let matches = [];
     let error = null;
+    let highlightedText = text;
+    let captureGroups = [];
+    let patternParts = [];
 
     try {
-      const regex = new RegExp(pattern, "g");
-      matches = Array.from(text.matchAll(regex), (m) => m[0]);
+      const regex = new RegExp(pattern, flags);
+      const allMatches = Array.from(text.matchAll(regex));
+
+      // Get matches and capture groups
+      matches = allMatches.map((match) => match[0]);
+      captureGroups = allMatches.map((match) => Array.from(match));
+
+      // Highlight matches in text
+      let lastIndex = 0;
+      let result = "";
+      for (const match of allMatches) {
+        const prefix = text.slice(lastIndex, match.index);
+        const matchText = match[0];
+        result += prefix;
+        result += `<mark>${matchText}</mark>`;
+        lastIndex = match.index + matchText.length;
+      }
+      result += text.slice(lastIndex);
+      highlightedText = result;
+
+      // Generate detailed pattern explanation
+      patternParts = explainRegex(pattern);
     } catch (err) {
       error = "Invalid regular expression pattern";
     }
 
-    res.json({ matches, error });
+    res.json({
+      matches,
+      error,
+      highlightedText,
+      captureGroups,
+      patternParts,
+    });
   } catch (error) {
+    console.error("Regex error:", error);
     res.status(500).json({ error: "Failed to test regex pattern" });
   }
 });
@@ -264,13 +469,43 @@ router.post("/regex", [body("text").notEmpty().withMessage("Text is required"), 
 // Lorem ipsum generator endpoint
 router.get("/lorem-ipsum", (req, res) => {
   try {
-    const paragraphs = Math.min(Math.max(parseInt(req.query.paragraphs) || 1, 1), 5);
-    const loremIpsum = ["Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.", "Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.", "Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.", "Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.", "Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium."];
+    const count = parseInt(req.query.count) || 1;
+    const type = req.query.type || "paragraphs";
 
-    const result = Array(paragraphs)
-      .fill()
-      .map((_, i) => loremIpsum[i % loremIpsum.length])
-      .join("\n\n");
+    // Base Lorem Ipsum text with more variety
+    const loremIpsum = [
+      "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
+      "Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
+      "Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.",
+      "Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.",
+      "Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.",
+      "Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium.",
+      "Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit.",
+      "Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit.",
+      "Quis autem vel eum iure reprehenderit qui in ea voluptate velit esse quam nihil molestiae consequatur.",
+      "At vero eos et accusamus et iusto odio dignissimos ducimus qui blanditiis praesentium voluptatum.",
+    ];
+
+    let result;
+    if (type === "words") {
+      // For word count, join all text and split into words
+      const allWords = loremIpsum.join(" ").split(/\s+/);
+      const words = [];
+
+      // Generate required number of words by cycling through the word list
+      for (let i = 0; i < count; i++) {
+        words.push(allWords[i % allWords.length]);
+      }
+
+      result = words.join(" ");
+    } else {
+      // For paragraphs, limit to 10 paragraphs maximum
+      const paragraphCount = Math.min(Math.max(count, 1), 10);
+      result = Array(paragraphCount)
+        .fill()
+        .map((_, i) => loremIpsum[i % loremIpsum.length])
+        .join("\n\n");
+    }
 
     res.json({ result });
   } catch (error) {
