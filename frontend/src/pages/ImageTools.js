@@ -3,12 +3,12 @@ import { Box, Button, Container, Grid, Paper, Typography, Slider, FormControl, I
 import { CloudUpload, Download, Refresh, AspectRatio, Delete } from "@mui/icons-material";
 
 function ImageTools() {
-  const [selectedFile, setSelectedFile] = useState(null);
+    const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [processedUrl, setProcessedUrl] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(null);
+    const [error, setError] = useState(null);
+    const [success, setSuccess] = useState(null);
   const fileInputRef = useRef(null);
 
   // Image manipulation states
@@ -26,11 +26,11 @@ function ImageTools() {
     compressionLevel: "medium",
   });
 
-  const handleFileSelect = (event) => {
-    const file = event.target.files[0];
-    if (file) {
+    const handleFileSelect = (event) => {
+        const file = event.target.files[0];
+        if (file) {
       if (file.type.startsWith("image/")) {
-        setSelectedFile(file);
+            setSelectedFile(file);
         const reader = new FileReader();
         reader.onload = () => {
           setPreviewUrl(reader.result);
@@ -46,7 +46,7 @@ function ImageTools() {
           img.src = reader.result;
         };
         reader.readAsDataURL(file);
-        setError(null);
+            setError(null);
         setProcessedUrl(null);
       } else {
         setError("Please select a valid image file");
@@ -82,10 +82,10 @@ function ImageTools() {
         ...prev,
         [setting]: value,
       }));
-    }
-  };
+        }
+    };
 
-  const handleResize = async () => {
+    const handleResize = async () => {
     try {
       setLoading(true);
       setError(null);
@@ -117,11 +117,11 @@ function ImageTools() {
       };
 
       img.src = previewUrl;
-    } catch (err) {
+        } catch (err) {
       setError("Failed to process image");
-      setLoading(false);
-    }
-  };
+            setLoading(false);
+        }
+    };
 
   const handleDownload = () => {
     if (processedUrl) {
@@ -187,25 +187,25 @@ function ImageTools() {
     // Reset the file input
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
-    }
-  };
+        }
+    };
 
-  return (
+    return (
     <Container maxWidth="xl">
       <Box sx={{ py: 4 }}>
         <Typography variant="h4" gutterBottom>
-          Image Tools
-        </Typography>
+                    Image Tools
+                </Typography>
 
         {(error || success) && (
           <Alert severity={error ? "error" : "success"} sx={{ mb: 2 }} onClose={() => (error ? setError(null) : setSuccess(null))}>
             {error || success}
-          </Alert>
-        )}
+                    </Alert>
+                )}
 
-        <Grid container spacing={3}>
+                <Grid container spacing={3}>
           {/* Image Upload and Preview Section */}
-          <Grid item xs={12} md={6}>
+                    <Grid item xs={12} md={6}>
             <Paper
               sx={{
                 p: 3,
@@ -214,9 +214,9 @@ function ImageTools() {
                 flexDirection: "column",
               }}
             >
-              <Typography variant="h6" gutterBottom>
-                Upload Image
-              </Typography>
+                                <Typography variant="h6" gutterBottom>
+                                    Upload Image
+                                </Typography>
 
               <input type="file" accept="image/*" hidden ref={fileInputRef} onChange={handleFileSelect} />
 
@@ -291,8 +291,8 @@ function ImageTools() {
                         >
                           Change Image
                         </Button>
-                        <Button
-                          variant="contained"
+                                    <Button
+                                        variant="contained"
                           startIcon={<Delete />}
                           onClick={handleDeleteImage}
                           sx={{
@@ -304,7 +304,7 @@ function ImageTools() {
                           }}
                         >
                           Delete
-                        </Button>
+                                    </Button>
                       </Stack>
                     </Box>
                   </Box>
@@ -325,24 +325,24 @@ function ImageTools() {
               </Box>
 
               {previewUrl && (
-                <Box sx={{ mt: 2 }}>
+                                    <Box sx={{ mt: 2 }}>
                   <Typography variant="body2" color="textSecondary" gutterBottom>
                     File: {selectedFile?.name}
                   </Typography>
                   <Typography variant="body2" color="textSecondary">
                     Size: {(selectedFile?.size / 1024 / 1024).toFixed(2)} MB
                   </Typography>
-                </Box>
-              )}
+                                    </Box>
+                                )}
             </Paper>
-          </Grid>
+                    </Grid>
 
           {/* Image Operations Section */}
-          <Grid item xs={12} md={6}>
+                    <Grid item xs={12} md={6}>
             <Paper sx={{ p: 3 }}>
-              <Typography variant="h6" gutterBottom>
-                Image Operations
-              </Typography>
+                                <Typography variant="h6" gutterBottom>
+                                    Image Operations
+                                </Typography>
 
               <Grid container spacing={2}>
                 {/* Dimensions */}
@@ -408,11 +408,11 @@ function ImageTools() {
                   <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
                     <Button variant="contained" onClick={handleResize} disabled={!selectedFile || loading} startIcon={<AspectRatio />} fullWidth>
                       Process Image
-                    </Button>
+                                    </Button>
 
                     <Button variant="outlined" onClick={handleReset} disabled={!selectedFile || loading} startIcon={<Refresh />}>
                       Reset
-                    </Button>
+                                    </Button>
                   </Stack>
                 </Grid>
               </Grid>
@@ -445,10 +445,10 @@ function ImageTools() {
               </Paper>
             </Grid>
           )}
-        </Grid>
-      </Box>
-    </Container>
-  );
+                </Grid>
+            </Box>
+        </Container>
+    );
 }
 
-export default ImageTools;
+export default ImageTools; 

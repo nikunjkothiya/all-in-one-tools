@@ -115,21 +115,34 @@ export const pdfToolsApi = {
       });
       return response.data;
     } catch (error) {
-      if (error.response?.data?.error) {
-        throw new Error(error.response.data.error);
-      }
-      throw new Error("Failed to protect PDF");
+      throw new Error(error.response?.data?.error || "Failed to protect PDF");
     }
   },
 
-  downloadPdf: async (url) => {
+  downloadPdf: async (url, filename) => {
     try {
-      const response = await api.get(url, {
-        responseType: "blob",
+      const response = await fetch(url, {
+        headers: {
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
+        },
       });
 
-      const blob = new Blob([response.data], { type: "application/pdf" });
-      return URL.createObjectURL(blob);
+      if (!response.ok) {
+        throw new Error("Failed to download PDF");
+      }
+
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+
+      const link = document.createElement("a");
+      link.href = downloadUrl;
+      link.setAttribute("download", filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(downloadUrl);
     } catch (error) {
       throw new Error("Failed to download PDF");
     }

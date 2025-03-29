@@ -6,10 +6,10 @@ import { pdfToolsApi } from "../services/api";
 
 function PdfTools() {
   const [activeTab, setActiveTab] = useState(0);
-  const [selectedFiles, setSelectedFiles] = useState([]);
+    const [selectedFiles, setSelectedFiles] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(null);
+    const [error, setError] = useState(null);
+    const [success, setSuccess] = useState(null);
   const fileInputRef = useRef(null);
 
   // PDF Split states
@@ -44,8 +44,8 @@ function PdfTools() {
     setSuccess(null);
   };
 
-  const handleFileSelect = (event) => {
-    const files = Array.from(event.target.files);
+    const handleFileSelect = (event) => {
+        const files = Array.from(event.target.files);
     const pdfFiles = files.filter((file) => file.type === "application/pdf");
 
     if (pdfFiles.length !== files.length) {
@@ -81,14 +81,7 @@ function PdfTools() {
       setDownloading(true);
       if (!processedPdfUrl) return;
 
-      const downloadUrl = await pdfToolsApi.downloadPdf(processedPdfUrl);
-      const link = document.createElement("a");
-      link.href = downloadUrl;
-      link.setAttribute("download", filename);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(downloadUrl);
+      await pdfToolsApi.downloadPdf(processedPdfUrl, filename);
     } catch (err) {
       setError("Failed to download PDF");
     } finally {
@@ -99,7 +92,7 @@ function PdfTools() {
   const handleSplitPDF = async () => {
     try {
       setLoading(true);
-      setError(null);
+            setError(null);
       setProcessedPdfUrl(null);
 
       if (!selectedFiles[0]) {
@@ -111,8 +104,9 @@ function PdfTools() {
       formData.append("pages", splitPages);
 
       const result = await pdfToolsApi.splitPDF(formData);
-      if (result.url) {
-        setProcessedPdfUrl(result.url);
+      if (result.results && result.results.length > 0) {
+        // For split PDF, we'll use the first result's URL
+        setProcessedPdfUrl(result.results[0].url);
         setSuccess("PDF split successfully! Click download to save the file.");
       } else {
         throw new Error("Failed to process PDF");
@@ -130,11 +124,11 @@ function PdfTools() {
       setError(null);
       setProcessedPdfUrl(null);
 
-      if (selectedFiles.length < 2) {
+        if (selectedFiles.length < 2) {
         throw new Error("Please select at least 2 PDF files to merge");
-      }
+        }
 
-      const formData = new FormData();
+            const formData = new FormData();
       selectedFiles.forEach((file) => {
         formData.append("files", file);
       });
@@ -146,17 +140,18 @@ function PdfTools() {
       } else {
         throw new Error("Failed to process PDF");
       }
-    } catch (err) {
+        } catch (err) {
       setError(err.message || "Failed to merge PDFs");
-    } finally {
-      setLoading(false);
-    }
-  };
+        } finally {
+            setLoading(false);
+        }
+    };
 
   const handleEditPDF = async () => {
     try {
       setLoading(true);
       setError(null);
+      setProcessedPdfUrl(null);
 
       if (!selectedFiles[0]) {
         throw new Error("Please select a PDF file to edit");
@@ -164,18 +159,15 @@ function PdfTools() {
 
       const formData = new FormData();
       formData.append("pdf", selectedFiles[0]);
-      formData.append("edits", JSON.stringify(editPages));
+      formData.append("edits", JSON.stringify(editOperations));
 
-      const response = await pdfToolsApi.editPDF(formData);
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement("a");
-      link.href = url;
-      link.setAttribute("download", "edited.pdf");
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-
-      setSuccess("PDF edited successfully!");
+      const result = await pdfToolsApi.editPDF(formData);
+      if (result.url) {
+        setProcessedPdfUrl(result.url);
+        setSuccess("PDF edited successfully! Click download to save the file.");
+      } else {
+        throw new Error("Failed to process PDF");
+      }
     } catch (err) {
       setError(err.message || "Failed to edit PDF");
     } finally {
@@ -185,7 +177,7 @@ function PdfTools() {
 
   const handleProtectPDF = async () => {
     try {
-      setLoading(true);
+        setLoading(true);
       setError(null);
       setProcessedPdfUrl(null);
 
@@ -197,7 +189,7 @@ function PdfTools() {
         throw new Error("Please enter a password");
       }
 
-      const formData = new FormData();
+            const formData = new FormData();
       formData.append("file", selectedFiles[0]);
       formData.append("password", password);
       formData.append("permissions", JSON.stringify(permissions));
@@ -209,10 +201,10 @@ function PdfTools() {
       } else {
         throw new Error("Failed to process PDF");
       }
-    } catch (err) {
+        } catch (err) {
       setError(err.message || "Failed to protect PDF");
-    } finally {
-      setLoading(false);
+        } finally {
+            setLoading(false);
     }
   };
 
@@ -242,8 +234,25 @@ function PdfTools() {
   const renderDownloadButton = () => {
     if (!processedPdfUrl) return null;
 
+    const getFilename = () => {
+      const originalName = selectedFiles[0]?.name || "document";
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+      switch (activeTab) {
+        case 0: // Split
+          return `split-${originalName}-${timestamp}.pdf`;
+        case 1: // Merge
+          return `merged-${timestamp}.pdf`;
+        case 2: // Edit
+          return `edited-${originalName}-${timestamp}.pdf`;
+        case 3: // Protect
+          return `protected-${originalName}-${timestamp}.pdf`;
+        default:
+          return `processed-${originalName}-${timestamp}.pdf`;
+        }
+    };
+
     return (
-      <Button variant="contained" color="primary" onClick={() => handleDownload(`processed-${selectedFiles[0]?.name || "document.pdf"}`)} disabled={downloading} startIcon={downloading ? <CircularProgress size={20} /> : <Download />} sx={{ mt: 2 }}>
+      <Button variant="contained" color="primary" onClick={() => handleDownload(getFilename())} disabled={downloading} startIcon={downloading ? <CircularProgress size={20} /> : <Download />} sx={{ mt: 2 }}>
         {downloading ? "Downloading..." : "Download PDF"}
       </Button>
     );
@@ -403,14 +412,14 @@ function PdfTools() {
     <Container maxWidth="xl">
       <Box sx={{ py: 4 }}>
         <Typography variant="h4" gutterBottom>
-          PDF Tools
-        </Typography>
+                    PDF Tools
+                </Typography>
 
         {(error || success) && (
           <Alert severity={error ? "error" : "success"} sx={{ mb: 2 }} onClose={() => (error ? setError(null) : setSuccess(null))}>
             {error || success}
-          </Alert>
-        )}
+                    </Alert>
+                )}
 
         <Paper sx={{ mb: 3 }}>
           <Tabs value={activeTab} onChange={handleTabChange} variant="scrollable" scrollButtons="auto">
@@ -421,18 +430,18 @@ function PdfTools() {
           </Tabs>
         </Paper>
 
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={6}>
+                <Grid container spacing={3}>
+                    <Grid item xs={12} md={6}>
             <Paper sx={{ p: 3 }}>
-              <Typography variant="h6" gutterBottom>
-                Upload PDF Files
-              </Typography>
+                                <Typography variant="h6" gutterBottom>
+                                    Upload PDF Files
+                                </Typography>
 
-              <input
-                type="file"
+                                <input
+                                    type="file"
                 hidden
                 ref={fileInputRef}
-                onChange={handleFileSelect}
+                                    onChange={handleFileSelect}
                 accept=".pdf"
                 multiple={activeTab === 1} // Allow multiple files only for merge
               />
@@ -461,37 +470,37 @@ function PdfTools() {
                 </Typography>
               </Box>
 
-              {selectedFiles.length > 0 && (
-                <Box sx={{ mt: 2 }}>
+                                {selectedFiles.length > 0 && (
+                                    <Box sx={{ mt: 2 }}>
                   <Typography variant="subtitle1" gutterBottom>
                     Selected Files:
-                  </Typography>
+                                        </Typography>
                   {renderFileList()}
-                </Box>
-              )}
+                                    </Box>
+                                )}
             </Paper>
-          </Grid>
+                    </Grid>
 
-          <Grid item xs={12} md={6}>
+                    <Grid item xs={12} md={6}>
             <Paper sx={{ p: 3 }}>
-              <Typography variant="h6" gutterBottom>
-                PDF Operations
-              </Typography>
+                                <Typography variant="h6" gutterBottom>
+                                    PDF Operations
+                                </Typography>
               {loading ? (
                 <Box sx={{ display: "flex", justifyContent: "center", p: 3 }}>
                   <CircularProgress />
-                </Box>
+                                </Box>
               ) : (
                 renderTabContent()
               )}
             </Paper>
-          </Grid>
-        </Grid>
+                    </Grid>
+                </Grid>
 
         {renderEditDialog()}
-      </Box>
-    </Container>
-  );
+            </Box>
+        </Container>
+    );
 }
 
 export default PdfTools;

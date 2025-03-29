@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import morgan from "morgan";
 import dotenv from "dotenv";
 import { connectDB } from "./config/db.js";
 import errorHandler from "./middleware/errorHandler.js";
@@ -12,6 +13,9 @@ import mediaRoutes from "./routes/media.routes.js";
 import webRoutes from "./routes/web.routes.js";
 import dataRoutes from "./routes/data.routes.js";
 import privacyRoutes from "./routes/privacy.routes.js";
+import path from "path";
+import { fileURLToPath } from "url";
+import { dirname } from "path";
 
 // Load environment variables
 dotenv.config();
@@ -26,6 +30,12 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(morgan("dev"));
+
+// Serve static files from uploads directory
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
 // Mount routes
 app.use("/api/text", textRoutes);
@@ -58,5 +68,5 @@ app.use((req, res) => {
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV}`);
+  console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
 });

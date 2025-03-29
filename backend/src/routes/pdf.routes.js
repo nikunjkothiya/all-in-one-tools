@@ -6,6 +6,7 @@ import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
+import { v4 as uuidv4 } from "uuid";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -13,32 +14,34 @@ const __dirname = dirname(__filename);
 const router = express.Router();
 
 // Configure multer for file uploads
-const storage = multer.memoryStorage();
-const upload = multer({
-  storage: storage,
-  limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB limit
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = path.join(__dirname, "../../uploads");
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
   },
+  filename: (req, file, cb) => {
+    const timestamp = Date.now();
+    const uniqueId = uuidv4();
+    cb(null, `${timestamp}-${uniqueId}-${file.originalname}`);
+  },
+});
+
+const upload = multer({
+  storage,
   fileFilter: (req, file, cb) => {
     if (file.mimetype === "application/pdf") {
       cb(null, true);
     } else {
-      cb(new Error("Only PDF files are allowed!"));
+      cb(new Error("Only PDF files are allowed"));
     }
   },
 });
 
-// Ensure uploads directory exists
-const uploadsDir = path.join(process.cwd(), "uploads");
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
-
-// Helper function to save PDF and return URL
-const savePdf = async (buffer) => {
-  const filename = `${Date.now()}-${Math.random().toString(36).substring(7)}.pdf`;
-  const filepath = path.join(uploadsDir, filename);
-  await fs.promises.writeFile(filepath, buffer);
+// Helper function to get file URL
+const getFileUrl = (filename) => {
   return `/uploads/${filename}`;
 };
 
@@ -55,68 +58,86 @@ const createTestPdf = async () => {
 };
 
 // Merge PDFs endpoint
-router.post("/merge", upload.array("files", 10), async (req, res) => {
+router.post("/merge", upload.array("files"), async (req, res) => {
   try {
     if (!req.files || req.files.length < 2) {
-      return res.status(400).json({ error: "At least two PDF files are required" });
+      return res.status(400).json({ error: "Please upload at least 2 PDF files" });
     }
 
     const mergedPdf = await PDFDocument.create();
+    const files = req.files;
 
-    for (const file of req.files) {
-      try {
-        const pdf = await PDFDocument.load(file.buffer);
-        const pages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
-        pages.forEach((page) => mergedPdf.addPage(page));
-      } catch (error) {
-        console.error("Error processing PDF:", error);
-        return res.status(400).json({ error: "Invalid PDF file provided" });
-      }
+    for (const file of files) {
+      const pdfBytes = await fs.promises.readFile(file.path);
+      const pdf = await PDFDocument.load(pdfBytes);
+      const pages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
+      pages.forEach((page) => mergedPdf.addPage(page));
     }
 
-    const pdfBytes = await mergedPdf.save();
-    const url = await savePdf(Buffer.from(pdfBytes));
-    res.json({ merged: url });
+    const mergedPdfBytes = await mergedPdf.save();
+    const timestamp = Date.now();
+    const uniqueId = uuidv4();
+    const outputFilename = `${timestamp}-${uniqueId}-merged.pdf`;
+    const outputPath = path.join(__dirname, "../../uploads", outputFilename);
+    await fs.promises.writeFile(outputPath, mergedPdfBytes);
+
+    // Clean up input files
+    await Promise.all(files.map((file) => fs.promises.unlink(file.path)));
+
+    res.json({ url: getFileUrl(outputFilename) });
   } catch (error) {
-    console.error("PDF merge error:", error);
+    console.error("Error merging PDFs:", error);
     res.status(500).json({ error: "Failed to merge PDFs" });
   }
 });
 
 // Split PDF endpoint
-router.post("/split", upload.single("file"), [body("pages").isString().withMessage("Pages string is required")], async (req, res) => {
+router.post("/split", upload.single("file"), async (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ error: "No PDF file provided" });
+      return res.status(400).json({ error: "No file uploaded" });
     }
 
-    const pages = req.body.pages.split(",").map((num) => parseInt(num.trim()));
-    if (pages.some((num) => isNaN(num) || num < 1)) {
-      return res.status(400).json({ error: "Invalid page numbers" });
-    }
+    const { pages } = req.body;
+    const inputPath = req.file.path;
+    const pdfBytes = await fs.promises.readFile(inputPath);
+    const pdfDoc = await PDFDocument.load(pdfBytes);
+    const pageCount = pdfDoc.getPageCount();
 
-    let pdf;
-    try {
-      pdf = await PDFDocument.load(req.file.buffer);
-    } catch (error) {
-      console.error("Error loading PDF:", error);
-      return res.status(400).json({ error: "Invalid PDF file provided" });
-    }
+    // Parse page ranges
+    const pageRanges = pages.split(",").map((range) => {
+      const [start, end] = range.split("-").map(Number);
+      return { start, end: end || start };
+    });
 
-    const splitPdf = await PDFDocument.create();
+    // Create new PDFs for each range
+    const results = await Promise.all(
+      pageRanges.map(async (range) => {
+        const newPdfDoc = await PDFDocument.create();
+        const pages = await newPdfDoc.copyPages(
+          pdfDoc,
+          Array.from({ length: range.end - range.start + 1 }, (_, i) => range.start - 1 + i)
+        );
+        pages.forEach((page) => newPdfDoc.addPage(page));
+        const newPdfBytes = await newPdfDoc.save();
+        const timestamp = Date.now();
+        const uniqueId = uuidv4();
+        const outputFilename = `${timestamp}-${uniqueId}-split-${range.start}-${range.end}.pdf`;
+        const outputPath = path.join(__dirname, "../../uploads", outputFilename);
+        await fs.promises.writeFile(outputPath, newPdfBytes);
+        return {
+          range: `${range.start}-${range.end}`,
+          url: getFileUrl(outputFilename),
+        };
+      })
+    );
 
-    for (const pageNum of pages) {
-      if (pageNum <= pdf.getPageCount()) {
-        const [copiedPage] = await splitPdf.copyPages(pdf, [pageNum - 1]);
-        splitPdf.addPage(copiedPage);
-      }
-    }
+    // Clean up input file
+    await fs.promises.unlink(inputPath);
 
-    const pdfBytes = await splitPdf.save();
-    const url = await savePdf(Buffer.from(pdfBytes));
-    res.json({ split: url });
+    res.json({ results });
   } catch (error) {
-    console.error("PDF split error:", error);
+    console.error("Error splitting PDF:", error);
     res.status(500).json({ error: "Failed to split PDF" });
   }
 });
@@ -129,7 +150,7 @@ router.post("/add-text", upload.single("file"), [body("text").notEmpty().withMes
     }
 
     const { text, page, x, y, fontSize = 12 } = req.body;
-    const pdf = await PDFDocument.load(req.file.buffer);
+    const pdf = await PDFDocument.load(req.file.path);
     const pdfPage = pdf.getPage(page - 1);
 
     pdfPage.drawText(text, {
@@ -139,10 +160,19 @@ router.post("/add-text", upload.single("file"), [body("text").notEmpty().withMes
     });
 
     const pdfBytes = await pdf.save();
-    const url = await savePdf(Buffer.from(pdfBytes));
-    res.json({ addedText: url });
+    const timestamp = Date.now();
+    const uniqueId = uuidv4();
+    const outputFilename = `${timestamp}-${uniqueId}-added-text.pdf`;
+    const outputPath = path.join(__dirname, "../../uploads", outputFilename);
+    await fs.promises.writeFile(outputPath, pdfBytes);
+
+    // Clean up input file
+    await fs.promises.unlink(req.file.path);
+
+    res.json({ url: getFileUrl(outputFilename) });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error("Error adding text to PDF:", error);
+    res.status(500).json({ error: "Failed to add text to PDF" });
   }
 });
 
@@ -154,7 +184,7 @@ router.post("/add-signature", upload.single("file"), [body("signature").notEmpty
     }
 
     const { signature, page, x, y } = req.body;
-    const pdf = await PDFDocument.load(req.file.buffer);
+    const pdf = await PDFDocument.load(req.file.path);
     const pdfPage = pdf.getPage(page - 1);
 
     // Draw signature text with a custom font
@@ -168,120 +198,124 @@ router.post("/add-signature", upload.single("file"), [body("signature").notEmpty
     });
 
     const pdfBytes = await pdf.save();
-    const url = await savePdf(Buffer.from(pdfBytes));
-    res.json({ addedSignature: url });
+    const timestamp = Date.now();
+    const uniqueId = uuidv4();
+    const outputFilename = `${timestamp}-${uniqueId}-added-signature.pdf`;
+    const outputPath = path.join(__dirname, "../../uploads", outputFilename);
+    await fs.promises.writeFile(outputPath, pdfBytes);
+
+    // Clean up input file
+    await fs.promises.unlink(req.file.path);
+
+    res.json({ url: getFileUrl(outputFilename) });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error("Error adding signature to PDF:", error);
+    res.status(500).json({ error: "Failed to add signature to PDF" });
   }
 });
 
-// Add rotation to edit PDF endpoint
-router.post("/edit", upload.single("file"), async (req, res) => {
+// Edit PDF endpoint
+router.post("/edit", upload.single("pdf"), async (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ error: "No PDF file provided" });
+      return res.status(400).json({ error: "No file uploaded" });
     }
 
-    const edits = JSON.parse(req.body.edits || "[]");
-    const rotation = parseInt(req.body.rotation || "0");
+    const { edits } = req.body;
+    const inputPath = req.file.path;
+    const pdfBytes = await fs.promises.readFile(inputPath);
+    const pdfDoc = await PDFDocument.load(pdfBytes);
+    const parsedEdits = JSON.parse(edits);
 
-    const pdfDoc = await PDFDocument.load(req.file.buffer);
-    const newPdfDoc = await PDFDocument.create();
-
-    // Apply edits (reorder, delete, or duplicate pages)
-    if (edits.length > 0) {
-      for (const edit of edits) {
-        const pageIndex = edit.pageNumber - 1;
-
-        if (edit.action === "delete") {
-          continue; // Skip this page
-        }
-
-        if (edit.action === "duplicate") {
-          const [page] = await newPdfDoc.copyPages(pdfDoc, [pageIndex]);
-          newPdfDoc.addPage(page);
-          newPdfDoc.addPage(page); // Add twice for duplication
-        } else {
-          const [page] = await newPdfDoc.copyPages(pdfDoc, [pageIndex]);
-          newPdfDoc.addPage(page);
-        }
+    // Apply edits
+    for (const edit of parsedEdits) {
+      if (edit.type === "delete") {
+        pdfDoc.removePage(edit.pageNumber - 1);
+      } else if (edit.type === "duplicate") {
+        const [copiedPage] = await pdfDoc.copyPages(pdfDoc, [edit.pageNumber - 1]);
+        pdfDoc.insertPage(edit.pageNumber, copiedPage);
       }
-    } else {
-      // If no edits, copy all pages
-      const pages = await newPdfDoc.copyPages(pdfDoc, pdfDoc.getPageIndices());
-      pages.forEach((page) => {
-        newPdfDoc.addPage(page);
-        if (rotation !== 0) {
-          page.setRotation(degrees(rotation));
-        }
-      });
     }
 
-    const pdfBytes = await newPdfDoc.save();
-    const outputPath = path.join(uploadsDir, `edited-${Date.now()}.pdf`);
-    await fs.promises.writeFile(outputPath, pdfBytes);
+    const editedPdfBytes = await pdfDoc.save();
+    const timestamp = Date.now();
+    const uniqueId = uuidv4();
+    const outputFilename = `${timestamp}-${uniqueId}-edited.pdf`;
+    const outputPath = path.join(__dirname, "../../uploads", outputFilename);
+    await fs.promises.writeFile(outputPath, editedPdfBytes);
 
-    res.download(outputPath, "edited.pdf", async (err) => {
-      if (err) {
-        console.error("Error downloading file:", err);
-      }
-      // Cleanup
-      await fs.promises.unlink(req.file.path).catch(console.error);
-      await fs.promises.unlink(outputPath).catch(console.error);
-    });
+    // Clean up input file
+    await fs.promises.unlink(inputPath);
+
+    res.json({ url: getFileUrl(outputFilename) });
   } catch (error) {
     console.error("Error editing PDF:", error);
     res.status(500).json({ error: "Failed to edit PDF" });
   }
 });
 
-// Helper function to convert degrees to radians
-const degrees = (deg) => (deg * Math.PI) / 180;
-
 // Update protect PDF endpoint to handle more permissions
 router.post("/protect", upload.single("file"), async (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ error: "No PDF file provided" });
+      return res.status(400).json({ error: "No file uploaded" });
     }
 
-    const { password } = req.body;
-    const permissions = JSON.parse(req.body.permissions || "{}");
-
+    const { password, permissions } = req.body;
     if (!password) {
       return res.status(400).json({ error: "Password is required" });
     }
 
-    // Load the PDF document
-    const pdfDoc = await PDFDocument.load(req.file.buffer);
+    const inputPath = req.file.path;
+    const pdfBytes = await fs.promises.readFile(inputPath);
 
-    // Create a new document and copy all pages
-    const encryptedPdfDoc = await PDFDocument.create();
-    const pages = await encryptedPdfDoc.copyPages(pdfDoc, pdfDoc.getPageIndices());
-    pages.forEach((page) => encryptedPdfDoc.addPage(page));
-
-    // Set up permissions using the correct pdf-lib format
-    const userPermissions = {
-      printing: permissions.print ? "highResolution" : "none",
-      modifying: permissions.edit,
-      extracting: permissions.copy,
-      annotating: permissions.edit,
-      fillingForms: permissions.edit,
-      contentAccessibility: true,
-      documentAssembly: permissions.edit,
-    };
+    // Load the original PDF
+    const pdfDoc = await PDFDocument.load(pdfBytes);
 
     // Save with encryption
-    const pdfBytes = await encryptedPdfDoc.save({
-      useUserPassword: true,
+    const protectedPdfBytes = await pdfDoc.save({
+      // Set user password for opening the document
       userPassword: password,
-      ownerPassword: password + "_owner", // Create a different owner password
-      permissions: userPermissions,
+      // Set owner password for full access
+      ownerPassword: `${password}_owner`,
+      // Set permissions
+      permissions: {
+        printing: permissions?.print ? "highResolution" : "none",
+        modifying: false,
+        extracting: false,
+        annotating: false,
+        fillingForms: false,
+        documentAssembly: false,
+        copying: permissions?.copy || false,
+      },
     });
 
-    // Save the encrypted PDF
-    const url = await savePdf(Buffer.from(pdfBytes));
-    res.json({ protected: url });
+    const timestamp = Date.now();
+    const uniqueId = uuidv4();
+    const outputFilename = `${timestamp}-${uniqueId}-protected.pdf`;
+    const outputPath = path.join(__dirname, "../../uploads", outputFilename);
+    await fs.promises.writeFile(outputPath, protectedPdfBytes);
+
+    // Clean up input file
+    await fs.promises.unlink(inputPath);
+
+    // Return the full URL including the domain
+    const baseUrl = process.env.BASE_URL || "http://localhost:5000";
+    const fileUrl = `${baseUrl}${getFileUrl(outputFilename)}`;
+
+    // Set response headers to prevent caching
+    res.set({
+      "Cache-Control": "no-store, no-cache, must-revalidate, private",
+      Pragma: "no-cache",
+      Expires: "0",
+    });
+
+    res.json({
+      url: fileUrl,
+      filename: outputFilename,
+      isProtected: true,
+      message: "PDF has been protected with password successfully",
+    });
   } catch (error) {
     console.error("Error protecting PDF:", error);
     res.status(500).json({ error: "Failed to protect PDF" });

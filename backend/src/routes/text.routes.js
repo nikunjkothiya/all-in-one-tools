@@ -20,12 +20,12 @@ router.post("/case-converter", [body("text").notEmpty().withMessage("Text is req
     const { text, caseType } = req.body;
     let result;
 
-    switch (caseType) {
+        switch (caseType) {
       case "uppercase":
-        result = text.toUpperCase();
-        break;
+                result = text.toUpperCase();
+                break;
       case "lowercase":
-        result = text.toLowerCase();
+                result = text.toLowerCase();
         break;
       case "titlecase":
         result = text
@@ -121,8 +121,8 @@ const computeCharDiff = (text1, text2) => {
     if (j >= text2.length) {
       flushDiff();
       differences.push({ type: "remove", line: text1.slice(i) });
-      break;
-    }
+                break;
+        }
 
     if (text1[i] === text2[j]) {
       flushDiff();
@@ -151,10 +151,10 @@ const computeCharDiff = (text1, text2) => {
 const computeLineDiff = (text1, text2) => {
   const lines1 = text1.split("\n");
   const lines2 = text2.split("\n");
-  const differences = [];
+        const differences = [];
 
-  for (let i = 0; i < Math.max(lines1.length, lines2.length); i++) {
-    if (i >= lines1.length) {
+        for (let i = 0; i < Math.max(lines1.length, lines2.length); i++) {
+            if (i >= lines1.length) {
       differences.push({
         type: "add",
         line: lines2[i],
@@ -222,21 +222,21 @@ router.post("/diff", [body("text1").notEmpty().withMessage("First text is requir
 
 // Text encode/decode endpoint
 router.post("/encode", [body("text").notEmpty().withMessage("Text is required"), body("encoding").isIn(["base64"]).withMessage("Invalid encoding type"), body("decode").optional().isBoolean().withMessage("Invalid decode parameter")], (req, res) => {
-  const { text, encoding, decode } = req.body;
+        const { text, encoding, decode } = req.body;
 
   if (encoding === "base64") {
-    if (decode) {
-      try {
+            if (decode) {
+                try {
         const decoded = Buffer.from(text, "base64").toString("utf8");
-        res.json({ decoded });
-      } catch (error) {
+                    res.json({ decoded });
+                } catch (error) {
         res.status(400).json({ error: "Invalid base64 string" });
-      }
-    } else {
+                }
+            } else {
       const encoded = Buffer.from(text).toString("base64");
-      res.json({ encoded });
-    }
-  } else {
+                res.json({ encoded });
+            }
+        } else {
     res.status(400).json({ error: "Unsupported encoding type" });
   }
 });
@@ -420,8 +420,8 @@ const explainRegex = (pattern) => {
 router.post("/regex", [body("text").notEmpty().withMessage("Text is required"), body("pattern").notEmpty().withMessage("Pattern is required"), body("flags").optional().isString().withMessage("Invalid flags")], validateRequest, (req, res) => {
   try {
     const { text, pattern, flags = "g" } = req.body;
-    let matches = [];
-    let error = null;
+        let matches = [];
+        let error = null;
     let highlightedText = text;
     let captureGroups = [];
     let patternParts = [];
@@ -449,7 +449,7 @@ router.post("/regex", [body("text").notEmpty().withMessage("Text is required"), 
 
       // Generate detailed pattern explanation
       patternParts = explainRegex(pattern);
-    } catch (err) {
+        } catch (err) {
       error = "Invalid regular expression pattern";
     }
 
@@ -516,7 +516,7 @@ router.get("/lorem-ipsum", (req, res) => {
 // Markdown preview endpoint
 router.post("/markdown", [body("markdown").notEmpty().withMessage("Markdown text is required")], validateRequest, (req, res) => {
   try {
-    const { markdown } = req.body;
+        const { markdown } = req.body;
 
     // Convert markdown to HTML
     const html = marked(markdown);
@@ -536,4 +536,4 @@ router.post("/markdown", [body("markdown").notEmpty().withMessage("Markdown text
   }
 });
 
-export default router;
+export default router; 
