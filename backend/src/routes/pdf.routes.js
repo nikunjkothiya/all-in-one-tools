@@ -7,9 +7,34 @@ import fs from "fs";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
 import { v4 as uuidv4 } from "uuid";
+import { encrypt } from "node-qpdf2";
+import dotenv from "dotenv";
+import { exec } from "child_process";
+import { promisify } from "util";
+
+// Promisify exec for async/await usage
+const execAsync = promisify(exec);
+
+// Load environment variables
+dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+
+// Get QPDF path from environment variables with fallback
+const QPDF_PATH = process.env.QPDF_PATH || "C:\\Program Files\\qpdf\\bin\\qpdf.exe";
+
+// Verify QPDF installation on startup
+try {
+  if (!fs.existsSync(QPDF_PATH)) {
+    console.error(`WARNING: QPDF binary not found at ${QPDF_PATH}`);
+    console.error("Please install QPDF and set QPDF_PATH in .env file");
+  } else {
+    console.log(`QPDF found at: ${QPDF_PATH}`);
+  }
+} catch (error) {
+  console.error("Error checking QPDF installation:", error);
+}
 
 const router = express.Router();
 
@@ -38,6 +63,9 @@ const upload = multer({
       cb(new Error("Only PDF files are allowed"));
     }
   },
+  limits: {
+    fileSize: 50 * 1024 * 1024, // 50MB max file size
+  },
 });
 
 // Helper function to get file URL
@@ -45,281 +73,484 @@ const getFileUrl = (filename) => {
   return `/uploads/${filename}`;
 };
 
-// Helper function to create a test PDF
-const createTestPdf = async () => {
-  const pdfDoc = await PDFDocument.create();
-  const page = pdfDoc.addPage();
-  page.drawText("Test PDF", {
-    x: 50,
-    y: 750,
-    size: 12,
-  });
-  return await pdfDoc.save();
+// Helper function to create output filename
+const createOutputFilename = (operation) => {
+  const timestamp = Date.now();
+  const uniqueId = uuidv4();
+  return `${timestamp}-${uniqueId}-${operation}.pdf`;
 };
 
-// Merge PDFs endpoint
-router.post("/merge", upload.array("files"), async (req, res) => {
-  try {
+// Error handler for async routes
+const asyncHandler = (fn) => (req, res, next) =>
+  Promise.resolve(fn(req, res, next)).catch((error) => {
+    console.error(`Error in ${fn.name || "unknown function"}:`, error);
+    res.status(500).json({
+      error: `Failed to ${fn.name || "process"} PDF`,
+      details: error.message,
+    });
+  });
+
+// Merge PDFs endpoint with enhanced features
+router.post(
+  "/merge",
+  upload.array("files"),
+  asyncHandler(async (req, res) => {
     if (!req.files || req.files.length < 2) {
       return res.status(400).json({ error: "Please upload at least 2 PDF files" });
     }
 
-    const mergedPdf = await PDFDocument.create();
-    const files = req.files;
+    const { customOrder, outputFilename: customOutputName } = req.body;
+    const orderArray = customOrder ? JSON.parse(customOrder) : null;
 
-    for (const file of files) {
+    // Validate and process files in the specified order
+    const filesToProcess = orderArray ? orderArray.map((index) => req.files[index]) : req.files;
+
+    // Create a new PDF document
+    const mergedPdf = await PDFDocument.create();
+    const pdfDetails = [];
+
+    // Merge all PDFs and collect details
+    for (const file of filesToProcess) {
       const pdfBytes = await fs.promises.readFile(file.path);
       const pdf = await PDFDocument.load(pdfBytes);
+
+      // Get details of first page for preview
+      const firstPage = pdf.getPage(0);
+      const { width, height } = firstPage.getSize();
+
+      // Copy all pages
       const pages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
       pages.forEach((page) => mergedPdf.addPage(page));
+
+      pdfDetails.push({
+        name: file.originalname,
+        pageCount: pdf.getPageCount(),
+        pageSize: { width, height },
+      });
     }
 
-    const mergedPdfBytes = await mergedPdf.save();
+    // Generate output filename
     const timestamp = Date.now();
     const uniqueId = uuidv4();
-    const outputFilename = `${timestamp}-${uniqueId}-merged.pdf`;
+    const outputFilename = customOutputName ? `${timestamp}-${uniqueId}-${customOutputName}.pdf` : `${timestamp}-${uniqueId}-merged-document.pdf`;
+
     const outputPath = path.join(__dirname, "../../uploads", outputFilename);
+
+    // Save the merged PDF
+    const mergedPdfBytes = await mergedPdf.save();
     await fs.promises.writeFile(outputPath, mergedPdfBytes);
 
     // Clean up input files
-    await Promise.all(files.map((file) => fs.promises.unlink(file.path)));
+    await Promise.all(req.files.map((file) => fs.promises.unlink(file.path)));
 
-    res.json({ url: getFileUrl(outputFilename) });
-  } catch (error) {
-    console.error("Error merging PDFs:", error);
-    res.status(500).json({ error: "Failed to merge PDFs" });
-  }
-});
+    // Get total page count
+    const totalPages = pdfDetails.reduce((sum, pdf) => sum + pdf.pageCount, 0);
 
-// Split PDF endpoint
-router.post("/split", upload.single("file"), async (req, res) => {
-  try {
+    res.json({
+      url: getFileUrl(outputFilename),
+      filename: outputFilename,
+      totalPages,
+      fileDetails: pdfDetails,
+      message: "PDFs merged successfully",
+    });
+  })
+);
+
+// Split PDF endpoint - using pdf-lib with enhanced features
+router.post(
+  "/split",
+  upload.single("file"),
+  asyncHandler(async (req, res) => {
     if (!req.file) {
       return res.status(400).json({ error: "No file uploaded" });
     }
 
-    const { pages } = req.body;
-    const inputPath = req.file.path;
-    const pdfBytes = await fs.promises.readFile(inputPath);
-    const pdfDoc = await PDFDocument.load(pdfBytes);
-    const pageCount = pdfDoc.getPageCount();
+    const { pages, customNames } = req.body;
+    if (!pages) {
+      return res.status(400).json({ error: "Please specify page ranges" });
+    }
 
-    // Parse page ranges
+    // Load the PDF first to get total pages
+    const pdfBytes = await fs.promises.readFile(req.file.path);
+    const pdfDoc = await PDFDocument.load(pdfBytes);
+    const totalPages = pdfDoc.getPageCount();
+
+    // Parse and validate page ranges
     const pageRanges = pages.split(",").map((range) => {
-      const [start, end] = range.split("-").map(Number);
-      return { start, end: end || start };
+      const [start, end] = range.trim().split("-").map(Number);
+      return {
+        start: Math.max(1, start || 1),
+        end: Math.min(end || start || totalPages, totalPages),
+      };
     });
 
-    // Create new PDFs for each range
-    const results = await Promise.all(
-      pageRanges.map(async (range) => {
-        const newPdfDoc = await PDFDocument.create();
-        const pages = await newPdfDoc.copyPages(
-          pdfDoc,
-          Array.from({ length: range.end - range.start + 1 }, (_, i) => range.start - 1 + i)
-        );
-        pages.forEach((page) => newPdfDoc.addPage(page));
-        const newPdfBytes = await newPdfDoc.save();
-        const timestamp = Date.now();
-        const uniqueId = uuidv4();
-        const outputFilename = `${timestamp}-${uniqueId}-split-${range.start}-${range.end}.pdf`;
-        const outputPath = path.join(__dirname, "../../uploads", outputFilename);
-        await fs.promises.writeFile(outputPath, newPdfBytes);
-        return {
-          range: `${range.start}-${range.end}`,
-          url: getFileUrl(outputFilename),
-        };
-      })
-    );
+    // Validate ranges don't overlap
+    pageRanges.sort((a, b) => a.start - b.start);
+    for (let i = 1; i < pageRanges.length; i++) {
+      if (pageRanges[i].start <= pageRanges[i - 1].end) {
+        return res.status(400).json({
+          error: "Page ranges cannot overlap",
+          details: `Range ${pageRanges[i - 1].start}-${pageRanges[i - 1].end} overlaps with ${pageRanges[i].start}-${pageRanges[i].end}`,
+        });
+      }
+    }
+
+    const results = [];
+    const customNamesList = customNames ? JSON.parse(customNames) : [];
+
+    for (let i = 0; i < pageRanges.length; i++) {
+      const range = pageRanges[i];
+      const newPdfDoc = await PDFDocument.create();
+      const pageIndices = Array.from({ length: range.end - range.start + 1 }, (_, idx) => range.start - 1 + idx);
+
+      // Copy pages
+      const pages = await newPdfDoc.copyPages(pdfDoc, pageIndices);
+      pages.forEach((page) => newPdfDoc.addPage(page));
+
+      // Generate output filename
+      const timestamp = Date.now();
+      const uniqueId = uuidv4();
+      const customName = customNamesList[i];
+      const originalName = req.file.originalname.replace(".pdf", "");
+
+      const outputFilename = customName ? `${timestamp}-${uniqueId}-${customName}-pages-${range.start}-${range.end}.pdf` : `${timestamp}-${uniqueId}-${originalName}-pages-${range.start}-${range.end}.pdf`;
+
+      const outputPath = path.join(__dirname, "../../uploads", outputFilename);
+
+      // Save the split PDF
+      const newPdfBytes = await newPdfDoc.save();
+      await fs.promises.writeFile(outputPath, newPdfBytes);
+
+      // Get page sizes for preview
+      const pageSize = pdfDoc.getPage(range.start - 1).getSize();
+
+      results.push({
+        range: `${range.start}-${range.end}`,
+        url: getFileUrl(outputFilename),
+        filename: outputFilename,
+        pageCount: range.end - range.start + 1,
+        pageSize: {
+          width: pageSize.width,
+          height: pageSize.height,
+        },
+      });
+    }
 
     // Clean up input file
-    await fs.promises.unlink(inputPath);
+    await fs.promises.unlink(req.file.path);
 
-    res.json({ results });
-  } catch (error) {
-    console.error("Error splitting PDF:", error);
-    res.status(500).json({ error: "Failed to split PDF" });
-  }
-});
+    res.json({
+      results,
+      totalPages,
+      originalName: req.file.originalname,
+    });
+  })
+);
 
-// Add text to PDF endpoint
-router.post("/add-text", upload.single("file"), [body("text").notEmpty().withMessage("Text is required"), body("page").isInt({ min: 1 }).withMessage("Invalid page number"), body("x").isFloat().withMessage("Invalid x coordinate"), body("y").isFloat().withMessage("Invalid y coordinate"), body("fontSize").optional().isInt({ min: 1, max: 72 })], async (req, res) => {
-  try {
+// Add text to PDF endpoint - pdf-lib is more suitable for this
+router.post(
+  "/add-text",
+  upload.single("file"),
+  [body("text").notEmpty().withMessage("Text is required"), body("page").isInt({ min: 1 }).withMessage("Invalid page number"), body("x").isFloat().withMessage("Invalid x coordinate"), body("y").isFloat().withMessage("Invalid y coordinate"), body("fontSize").optional().isInt({ min: 1, max: 72 })],
+  asyncHandler(async (req, res) => {
     if (!req.file) {
       return res.status(400).json({ error: "No PDF file provided" });
     }
 
     const { text, page, x, y, fontSize = 12 } = req.body;
-    const pdf = await PDFDocument.load(req.file.path);
-    const pdfPage = pdf.getPage(page - 1);
+    const pdfBytes = await fs.promises.readFile(req.file.path);
+    const pdf = await PDFDocument.load(pdfBytes);
 
+    // Check if page number is valid
+    const pageIndex = page - 1;
+    if (pageIndex < 0 || pageIndex >= pdf.getPageCount()) {
+      return res.status(400).json({ error: `Invalid page number: ${page}. Document has ${pdf.getPageCount()} pages.` });
+    }
+
+    const pdfPage = pdf.getPage(pageIndex);
+
+    // Add text with specified parameters
     pdfPage.drawText(text, {
-      x,
-      y,
-      size: fontSize,
+      x: parseFloat(x),
+      y: parseFloat(y),
+      size: parseInt(fontSize),
+      color: PDFDocument.rgb(0, 0, 0),
     });
 
-    const pdfBytes = await pdf.save();
-    const timestamp = Date.now();
-    const uniqueId = uuidv4();
-    const outputFilename = `${timestamp}-${uniqueId}-added-text.pdf`;
+    const modifiedPdfBytes = await pdf.save();
+    const outputFilename = createOutputFilename("added-text");
     const outputPath = path.join(__dirname, "../../uploads", outputFilename);
-    await fs.promises.writeFile(outputPath, pdfBytes);
+    await fs.promises.writeFile(outputPath, modifiedPdfBytes);
 
     // Clean up input file
     await fs.promises.unlink(req.file.path);
 
     res.json({ url: getFileUrl(outputFilename) });
-  } catch (error) {
-    console.error("Error adding text to PDF:", error);
-    res.status(500).json({ error: "Failed to add text to PDF" });
-  }
-});
+  })
+);
 
-// Add signature to PDF endpoint
-router.post("/add-signature", upload.single("file"), [body("signature").notEmpty().withMessage("Signature text is required"), body("page").isInt({ min: 1 }).withMessage("Invalid page number"), body("x").isFloat().withMessage("Invalid x coordinate"), body("y").isFloat().withMessage("Invalid y coordinate")], async (req, res) => {
-  try {
+// Add signature to PDF endpoint - pdf-lib is more suitable for this
+router.post(
+  "/add-signature",
+  upload.single("file"),
+  [body("signature").notEmpty().withMessage("Signature text is required"), body("page").isInt({ min: 1 }).withMessage("Invalid page number"), body("x").isFloat().withMessage("Invalid x coordinate"), body("y").isFloat().withMessage("Invalid y coordinate")],
+  asyncHandler(async (req, res) => {
     if (!req.file) {
       return res.status(400).json({ error: "No PDF file provided" });
     }
 
     const { signature, page, x, y } = req.body;
-    const pdf = await PDFDocument.load(req.file.path);
-    const pdfPage = pdf.getPage(page - 1);
+    const pdfBytes = await fs.promises.readFile(req.file.path);
+    const pdf = await PDFDocument.load(pdfBytes);
 
-    // Draw signature text with a custom font
+    // Check if page number is valid
+    const pageIndex = page - 1;
+    if (pageIndex < 0 || pageIndex >= pdf.getPageCount()) {
+      return res.status(400).json({ error: `Invalid page number: ${page}. Document has ${pdf.getPageCount()} pages.` });
+    }
+
+    const pdfPage = pdf.getPage(pageIndex);
+
+    // Embed a standard font for the signature
     const font = await pdf.embedFont(PDFDocument.StandardFonts.Helvetica);
+
+    // Draw the signature with embedded font
     pdfPage.drawText(signature, {
-      x,
-      y,
+      x: parseFloat(x),
+      y: parseFloat(y),
       size: 12,
       font,
       color: PDFDocument.rgb(0, 0, 0),
     });
 
-    const pdfBytes = await pdf.save();
-    const timestamp = Date.now();
-    const uniqueId = uuidv4();
-    const outputFilename = `${timestamp}-${uniqueId}-added-signature.pdf`;
+    const modifiedPdfBytes = await pdf.save();
+    const outputFilename = createOutputFilename("added-signature");
     const outputPath = path.join(__dirname, "../../uploads", outputFilename);
-    await fs.promises.writeFile(outputPath, pdfBytes);
+    await fs.promises.writeFile(outputPath, modifiedPdfBytes);
 
     // Clean up input file
     await fs.promises.unlink(req.file.path);
 
     res.json({ url: getFileUrl(outputFilename) });
-  } catch (error) {
-    console.error("Error adding signature to PDF:", error);
-    res.status(500).json({ error: "Failed to add signature to PDF" });
-  }
-});
+  })
+);
 
-// Edit PDF endpoint
-router.post("/edit", upload.single("pdf"), async (req, res) => {
-  try {
+// Edit PDF endpoint with enhanced features
+router.post(
+  "/edit",
+  upload.single("file"),
+  asyncHandler(async (req, res) => {
     if (!req.file) {
-      return res.status(400).json({ error: "No file uploaded" });
+      return res.status(400).json({ error: "Please upload a PDF file" });
     }
 
-    const { edits } = req.body;
-    const inputPath = req.file.path;
-    const pdfBytes = await fs.promises.readFile(inputPath);
-    const pdfDoc = await PDFDocument.load(pdfBytes);
-    const parsedEdits = JSON.parse(edits);
+    const { operations, outputFilename: customOutputName } = req.body;
 
-    // Apply edits
-    for (const edit of parsedEdits) {
-      if (edit.type === "delete") {
-        pdfDoc.removePage(edit.pageNumber - 1);
-      } else if (edit.type === "duplicate") {
-        const [copiedPage] = await pdfDoc.copyPages(pdfDoc, [edit.pageNumber - 1]);
-        pdfDoc.insertPage(edit.pageNumber, copiedPage);
+    if (!operations) {
+      return res.status(400).json({ error: "No edit operations specified" });
+    }
+
+    const operationsArray = JSON.parse(operations);
+
+    // Load the PDF document
+    const pdfBytes = await fs.promises.readFile(req.file.path);
+    const pdfDoc = await PDFDocument.load(pdfBytes);
+    const originalPageCount = pdfDoc.getPageCount();
+
+    // Create a new document for the edited PDF
+    const editedPdf = await PDFDocument.create();
+
+    // Track page modifications
+    const modifications = [];
+
+    // Process each operation in sequence
+    for (const op of operationsArray) {
+      switch (op.type) {
+        case "rotate":
+          const rotatedPage = pdfDoc.getPage(op.pageIndex);
+          rotatedPage.setRotation(degrees(op.degrees));
+          modifications.push({
+            type: "rotate",
+            page: op.pageIndex + 1,
+            degrees: op.degrees,
+          });
+          break;
+
+        case "delete":
+          // We'll handle deletions by not copying these pages
+          modifications.push({
+            type: "delete",
+            page: op.pageIndex + 1,
+          });
+          break;
+
+        case "reorder":
+          // Handled in final copy phase
+          modifications.push({
+            type: "reorder",
+            from: op.fromIndex + 1,
+            to: op.toIndex + 1,
+          });
+          break;
+
+        default:
+          console.warn(`Unknown operation type: ${op.type}`);
       }
     }
 
-    const editedPdfBytes = await pdfDoc.save();
+    // Get the final page order after all operations
+    const finalPageOrder = operationsArray
+      .filter((op) => op.type === "reorder")
+      .reduce(
+        (order, op) => {
+          const item = order.splice(op.fromIndex, 1)[0];
+          order.splice(op.toIndex, 0, item);
+          return order;
+        },
+        [...Array(originalPageCount).keys()]
+      );
+
+    // Filter out deleted pages
+    const deletedPages = new Set(operationsArray.filter((op) => op.type === "delete").map((op) => op.pageIndex));
+
+    // Copy pages in the final order, excluding deleted pages
+    for (const pageIndex of finalPageOrder) {
+      if (!deletedPages.has(pageIndex)) {
+        const [copiedPage] = await editedPdf.copyPages(pdfDoc, [pageIndex]);
+        editedPdf.addPage(copiedPage);
+      }
+    }
+
+    // Generate output filename
     const timestamp = Date.now();
     const uniqueId = uuidv4();
-    const outputFilename = `${timestamp}-${uniqueId}-edited.pdf`;
+    const outputFilename = customOutputName ? `${timestamp}-${uniqueId}-${customOutputName}.pdf` : `${timestamp}-${uniqueId}-edited-document.pdf`;
+
     const outputPath = path.join(__dirname, "../../uploads", outputFilename);
+
+    // Save the edited PDF
+    const editedPdfBytes = await editedPdf.save();
     await fs.promises.writeFile(outputPath, editedPdfBytes);
 
     // Clean up input file
-    await fs.promises.unlink(inputPath);
+    await fs.promises.unlink(req.file.path);
 
-    res.json({ url: getFileUrl(outputFilename) });
-  } catch (error) {
-    console.error("Error editing PDF:", error);
-    res.status(500).json({ error: "Failed to edit PDF" });
-  }
-});
+    res.json({
+      url: getFileUrl(outputFilename),
+      filename: outputFilename,
+      originalPageCount,
+      finalPageCount: editedPdf.getPageCount(),
+      modifications,
+      message: "PDF edited successfully",
+    });
+  })
+);
 
-// Update protect PDF endpoint to handle more permissions
-router.post("/protect", upload.single("file"), async (req, res) => {
-  try {
+// Protect/Unprotect PDF endpoint
+router.post(
+  "/protect",
+  upload.single("file"),
+  asyncHandler(async (req, res) => {
     if (!req.file) {
       return res.status(400).json({ error: "No file uploaded" });
     }
 
-    const { password, permissions } = req.body;
-    if (!password) {
-      return res.status(400).json({ error: "Password is required" });
+    const { action, password, currentPassword } = req.body;
+
+    // Check QPDF installation
+    if (!fs.existsSync(QPDF_PATH)) {
+      return res.status(500).json({
+        error: "QPDF not found. Please ensure QPDF is installed correctly.",
+        details: "QPDF binary not found at configured path",
+        path: QPDF_PATH,
+      });
     }
 
-    const inputPath = req.file.path;
-    const pdfBytes = await fs.promises.readFile(inputPath);
-
-    // Load the original PDF
-    const pdfDoc = await PDFDocument.load(pdfBytes);
-
-    // Save with encryption
-    const protectedPdfBytes = await pdfDoc.save({
-      // Set user password for opening the document
-      userPassword: password,
-      // Set owner password for full access
-      ownerPassword: `${password}_owner`,
-      // Set permissions
-      permissions: {
-        printing: permissions?.print ? "highResolution" : "none",
-        modifying: false,
-        extracting: false,
-        annotating: false,
-        fillingForms: false,
-        documentAssembly: false,
-        copying: permissions?.copy || false,
-      },
-    });
-
+    // Create output filename - preserve original name for password removal
     const timestamp = Date.now();
     const uniqueId = uuidv4();
-    const outputFilename = `${timestamp}-${uniqueId}-protected.pdf`;
+
+    // Clean up the original filename
+    let cleanFileName = req.file.originalname
+      .toLowerCase()
+      // Remove any existing timestamps
+      .replace(/\d{13}-[\w-]+-/, "")
+      // Remove common suffixes we might have added
+      .replace(/-protected|-unlocked|-without-password/g, "")
+      // Remove .pdf extension
+      .replace(".pdf", "");
+
+    const outputFilename = action === "remove" ? `${timestamp}-${uniqueId}-${cleanFileName}-without-password.pdf` : `${timestamp}-${uniqueId}-${cleanFileName}-protected.pdf`;
+
     const outputPath = path.join(__dirname, "../../uploads", outputFilename);
-    await fs.promises.writeFile(outputPath, protectedPdfBytes);
 
-    // Clean up input file
-    await fs.promises.unlink(inputPath);
+    try {
+      if (action === "remove") {
+        // Remove password from PDF using qpdf command directly
+        if (!currentPassword) {
+          throw new Error("Current password is required to remove protection");
+        }
 
-    // Return the full URL including the domain
-    const baseUrl = process.env.BASE_URL || "http://localhost:5000";
-    const fileUrl = `${baseUrl}${getFileUrl(outputFilename)}`;
+        // Use qpdf command directly for password removal
+        const qpdfCommand = `"${QPDF_PATH}" --password=${currentPassword} --decrypt "${req.file.path}" "${outputPath}"`;
 
-    // Set response headers to prevent caching
-    res.set({
-      "Cache-Control": "no-store, no-cache, must-revalidate, private",
-      Pragma: "no-cache",
-      Expires: "0",
-    });
+        try {
+          await execAsync(qpdfCommand);
+        } catch (cmdError) {
+          if (cmdError.message.includes("password")) {
+            return res.status(400).json({ error: "Incorrect password provided" });
+          }
+          throw new Error(`Failed to remove password: ${cmdError.message}`);
+        }
+      } else {
+        // Add password protection
+        if (!password) {
+          throw new Error("Password is required to protect PDF");
+        }
 
-    res.json({
-      url: fileUrl,
-      filename: outputFilename,
-      isProtected: true,
-      message: "PDF has been protected with password successfully",
-    });
-  } catch (error) {
-    console.error("Error protecting PDF:", error);
-    res.status(500).json({ error: "Failed to protect PDF" });
-  }
-});
+        await encrypt({
+          input: req.file.path,
+          output: outputPath,
+          password: password,
+          keyLength: 256,
+          binary: QPDF_PATH,
+          useAes: true,
+        });
+      }
+
+      // Verify output file exists
+      if (!fs.existsSync(outputPath)) {
+        throw new Error("Failed to process PDF");
+      }
+
+      // Clean up input file
+      await fs.promises.unlink(req.file.path);
+
+      // Return the processed file URL
+      const baseUrl = process.env.BASE_URL || "http://localhost:5000";
+      res.json({
+        url: `${baseUrl}${getFileUrl(outputFilename)}`,
+        filename: outputFilename,
+        message: action === "remove" ? "Password removed successfully" : "PDF protected successfully",
+      });
+    } catch (error) {
+      console.error("PDF Processing Error:", error);
+
+      // Clean up any partial output
+      if (fs.existsSync(outputPath)) {
+        await fs.promises.unlink(outputPath).catch(console.error);
+      }
+
+      if (error.message.includes("password")) {
+        return res.status(400).json({ error: "Incorrect password provided" });
+      }
+
+      res.status(500).json({
+        error: "Failed to process PDF",
+        details: error.message,
+      });
+    }
+  })
+);
 
 export default router;

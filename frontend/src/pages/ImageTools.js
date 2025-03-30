@@ -441,9 +441,9 @@ function ImageTools() {
                       maxHeight: "600px",
                     }}
                   />
-                </Box>
+                                </Box>
               </Paper>
-            </Grid>
+                    </Grid>
           )}
                 </Grid>
             </Box>

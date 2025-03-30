@@ -27,11 +27,8 @@ function PdfTools() {
   // Add new state variables for additional features
   const [rotation, setRotation] = useState(0);
   const [password, setPassword] = useState("");
-  const [permissions, setPermissions] = useState({
-    print: true,
-    edit: true,
-    copy: true,
-  });
+  const [isRemovePassword, setIsRemovePassword] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
   const [editOperations, setEditOperations] = useState([]);
 
   const [processedPdfUrl, setProcessedPdfUrl] = useState(null);
@@ -182,27 +179,37 @@ function PdfTools() {
       setProcessedPdfUrl(null);
 
       if (!selectedFiles[0]) {
-        throw new Error("Please select a PDF file to protect");
+        throw new Error("Please select a PDF file");
       }
 
-      if (!password) {
+      if (!isRemovePassword && !password) {
         throw new Error("Please enter a password");
+      }
+
+      if (isRemovePassword && !currentPassword) {
+        throw new Error("Please enter the current password");
       }
 
             const formData = new FormData();
       formData.append("file", selectedFiles[0]);
+      
+      if (isRemovePassword) {
+        formData.append("currentPassword", currentPassword);
+        formData.append("action", "remove");
+      } else {
       formData.append("password", password);
-      formData.append("permissions", JSON.stringify(permissions));
+        formData.append("action", "protect");
+      }
 
       const result = await pdfToolsApi.protectPdf(formData);
       if (result.url) {
         setProcessedPdfUrl(result.url);
-        setSuccess("PDF protected successfully! Click download to save the file.");
+        setSuccess(isRemovePassword ? "Password removed successfully!" : "PDF protected successfully!");
       } else {
         throw new Error("Failed to process PDF");
       }
         } catch (err) {
-      setError(err.message || "Failed to protect PDF");
+      setError(err.message || "Failed to process PDF");
         } finally {
             setLoading(false);
     }
@@ -327,22 +334,52 @@ function PdfTools() {
         return (
           <Box>
             <Typography variant="body1" gutterBottom>
-              Add password protection to your PDF
+              {isRemovePassword ? "Remove password from PDF" : "Add password protection to PDF"}
             </Typography>
             {selectedFiles.length > 0 && (
               <>
                 {renderFileList()}
                 <Stack spacing={2} sx={{ mt: 2 }}>
-                  <TextField fullWidth type="password" label="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
-                  <Typography variant="subtitle2" gutterBottom>
-                    Permissions
-                  </Typography>
-                  <FormControlLabel control={<Switch checked={permissions.print} onChange={(e) => setPermissions({ ...permissions, print: e.target.checked })} />} label="Allow Printing" />
-                  <FormControlLabel control={<Switch checked={permissions.edit} onChange={(e) => setPermissions({ ...permissions, edit: e.target.checked })} />} label="Allow Editing" />
-                  <FormControlLabel control={<Switch checked={permissions.copy} onChange={(e) => setPermissions({ ...permissions, copy: e.target.checked })} />} label="Allow Copying" />
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={isRemovePassword}
+                        onChange={(e) => {
+                          setIsRemovePassword(e.target.checked);
+                          setError(null);
+                          setSuccess(null);
+                        }}
+                      />
+                    }
+                    label="Remove Password"
+                  />
+
+                  {isRemovePassword ? (
+                    <TextField
+                      fullWidth
+                      type="password"
+                      label="Current Password"
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                    />
+                  ) : (
+                    <TextField
+                      fullWidth
+                      type="password"
+                      label="New Password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                    />
+                  )}
+
                   <Stack direction="row" spacing={2}>
-                    <Button variant="contained" onClick={handleProtectPDF} startIcon={loading ? <CircularProgress size={20} /> : <Lock />} disabled={!password || loading}>
-                      {loading ? "Processing..." : "Protect PDF"}
+                    <Button
+                      variant="contained"
+                      onClick={handleProtectPDF}
+                      startIcon={loading ? <CircularProgress size={20} /> : <Lock />}
+                      disabled={(!isRemovePassword && !password) || (isRemovePassword && !currentPassword) || loading}
+                    >
+                      {loading ? "Processing..." : isRemovePassword ? "Remove Password" : "Protect PDF"}
                     </Button>
                     {renderDownloadButton()}
                   </Stack>

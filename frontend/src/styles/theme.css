@@ -1,0 +1,228 @@
+/* Dark Theme with Black Accents */
+:root {
+    --primary-bg: #000000;
+    --secondary-bg: #111111;
+    --card-bg: #1c1c1c;
+    --accent-color: #3d84f7;
+    --accent-gradient: linear-gradient(135deg, #3d84f7 0%, #1e3fac 100%);
+    --accent-hover: #2563eb;
+    --text-primary: #ffffff;
+    --text-secondary: #b3b3b3;
+    --border-color: rgba(255, 255, 255, 0.08);
+    --success-color: #00e676;
+    --error-color: #ff5252;
+    --shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+body {
+    background-color: var(--primary-bg);
+    color: var(--text-primary);
+    margin: 0;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* Top Navigation Bar */
+.navbar {
+    background-color: var(--secondary-bg);
+    padding: 0.5rem;
+    box-shadow: var(--shadow);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.navbar-brand {
+    color: var(--accent-color) !important;
+    font-weight: 600;
+    font-size: 1.2rem;
+    padding: 0 0.5rem;
+}
+
+.nav-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    max-width: 1800px;
+    margin: 0 auto;
+    padding: 0 1rem;
+}
+
+.nav-menu {
+    display: flex;
+    gap: 0.25rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.nav-menu::-webkit-scrollbar {
+    display: none;
+}
+
+.nav-link {
+    color: var(--text-secondary) !important;
+    padding: 0.4rem 0.75rem !important;
+    margin: 0 0.1rem;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    font-size: 0.9rem;
+    white-space: nowrap;
+}
+
+.nav-link:hover,
+.nav-link.active {
+    color: var(--text-primary) !important;
+    background-color: var(--card-bg);
+}
+
+/* Tool Cards Grid */
+.tools-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 0.75rem;
+    padding: 0.75rem;
+    max-width: 1800px;
+    margin: 0 auto;
+}
+
+.tool-card {
+    background-color: var(--card-bg);
+    border-radius: 6px;
+    padding: 0.75rem;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    border: 1px solid var(--border-color);
+    cursor: pointer;
+}
+
+.tool-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+    border-color: var(--accent-color);
+}
+
+.tool-card h3 {
+    color: var(--accent-color);
+    margin: 0 0 0.4rem 0;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.tool-card p {
+    color: var(--text-secondary);
+    margin: 0;
+    font-size: 0.85rem;
+    line-height: 1.3;
+}
+
+/* Buttons */
+.btn-primary {
+    background: var(--accent-color) !important;
+    border: none !important;
+    padding: 0.4rem 0.75rem;
+    font-weight: 500;
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+
+.btn-primary:hover {
+    background: var(--accent-hover) !important;
+}
+
+/* Form Elements */
+.form-control {
+    background-color: var(--secondary-bg) !important;
+    border: 1px solid var(--border-color) !important;
+    color: var(--text-primary) !important;
+    padding: 0.4rem 0.75rem;
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+
+.form-control:focus {
+    border-color: var(--accent-color) !important;
+    box-shadow: 0 0 0 2px rgba(61, 132, 247, 0.2) !important;
+}
+
+/* Tool Section Headers */
+.section-header {
+    color: var(--text-primary);
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin: 0.75rem 0;
+    padding: 0 0.75rem;
+}
+
+.section-description {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    margin-bottom: 1rem;
+    padding: 0 0.75rem;
+}
+
+/* Tabs Navigation */
+.nav-tabs {
+    background: var(--secondary-bg);
+    padding: 0.5rem 0.5rem 0;
+    margin: 0;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    gap: 0.25rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+.nav-tabs::-webkit-scrollbar {
+    display: none;
+}
+
+.nav-tabs .nav-link {
+    padding: 0.4rem 0.75rem;
+    font-size: 0.9rem;
+    border-radius: 4px 4px 0 0;
+}
+
+.nav-tabs .nav-link.active {
+    background: var(--card-bg);
+    border-bottom: 2px solid var(--accent-color);
+}
+
+/* Content Areas */
+.content-area {
+    padding: 0.75rem;
+    background: var(--card-bg);
+    border-radius: 4px;
+    margin: 0.75rem;
+}
+
+/* File Upload Area */
+.upload-area {
+    background-color: var(--secondary-bg);
+    border: 1px dashed var(--border-color);
+    border-radius: 4px;
+    padding: 1rem;
+    text-align: center;
+    margin: 0.75rem;
+}
+
+.upload-area:hover {
+    border-color: var(--accent-color);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .tools-grid {
+        grid-template-columns: 1fr;
+        padding: 0.5rem;
+    }
+
+    .nav-menu {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+    }
+
+    .content-area {
+        margin: 0.5rem;
+        padding: 0.5rem;
+    }
+}
