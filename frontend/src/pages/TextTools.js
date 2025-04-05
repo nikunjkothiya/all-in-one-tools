@@ -7,13 +7,13 @@ import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 
 function TabPanel(props) {
-  const { children, value, index, ...other } = props;
+    const { children, value, index, ...other } = props;
 
-  return (
+    return (
     <div role="tabpanel" hidden={value !== index} id={`text-tool-tabpanel-${index}`} aria-labelledby={`text-tool-tab-${index}`} {...other}>
-      {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
-    </div>
-  );
+            {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
+        </div>
+    );
 }
 
 const commonPatterns = [
@@ -256,7 +256,7 @@ const regexCategories = [
 ];
 
 function TextTools() {
-  const [tabValue, setTabValue] = useState(0);
+    const [tabValue, setTabValue] = useState(0);
   const [inputText, setInputText] = useState("");
   const [outputText, setOutputText] = useState("");
   const [caseType, setCaseType] = useState("uppercase");
@@ -356,31 +356,31 @@ function example() {
 | Cell 3   | Cell 4   |
 `);
 
-  const handleTabChange = (event, newValue) => {
-    setTabValue(newValue);
+    const handleTabChange = (event, newValue) => {
+        setTabValue(newValue);
     setError("");
-  };
+    };
 
-  const handleCaseConversion = () => {
-    switch (caseType) {
+    const handleCaseConversion = () => {
+        switch (caseType) {
       case "uppercase":
-        setOutputText(inputText.toUpperCase());
-        break;
+                setOutputText(inputText.toUpperCase());
+                break;
       case "lowercase":
-        setOutputText(inputText.toLowerCase());
-        break;
+                setOutputText(inputText.toLowerCase());
+                break;
       case "titlecase":
-        setOutputText(
-          inputText
+                setOutputText(
+                    inputText
             .split(" ")
-            .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+                        .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
             .join(" ")
-        );
-        break;
-      default:
-        setOutputText(inputText);
-    }
-  };
+                );
+                break;
+            default:
+                setOutputText(inputText);
+        }
+    };
 
   const handleTextDiff = async () => {
     try {
@@ -495,11 +495,11 @@ function example() {
     setCustomCount(newType === "paragraphs" ? 1 : 100);
   };
 
-  return (
-    <Container maxWidth="lg">
-      <Typography variant="h4" component="h1" gutterBottom>
-        Text Tools
-      </Typography>
+    return (
+        <Container maxWidth="lg">
+            <Typography variant="h4" component="h1" gutterBottom>
+                Text Tools
+            </Typography>
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -509,48 +509,48 @@ function example() {
 
       <Paper sx={{ width: "100%", mb: 2 }}>
         <Tabs value={tabValue} onChange={handleTabChange} aria-label="text tools tabs">
-          <Tab label="Case Converter" />
-          <Tab label="Text Diff" />
-          <Tab label="Regex Tester" />
-          <Tab label="Lorem Ipsum" />
-          <Tab label="Markdown Preview" />
-        </Tabs>
+                    <Tab label="Case Converter" />
+                    <Tab label="Text Diff" />
+                    <Tab label="Regex Tester" />
+                    <Tab label="Lorem Ipsum" />
+                    <Tab label="Markdown Preview" />
+                </Tabs>
 
-        <TabPanel value={tabValue} index={0}>
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
+                <TabPanel value={tabValue} index={0}>
+                    <Grid container spacing={3}>
+                        <Grid item xs={12} md={6}>
               <TextField fullWidth multiline rows={6} label="Input Text" value={inputText} onChange={(e) => setInputText(e.target.value)} variant="outlined" />
-            </Grid>
-            <Grid item xs={12} md={6}>
+                        </Grid>
+                        <Grid item xs={12} md={6}>
               <Box sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
-                <FormControl sx={{ mb: 2 }}>
-                  <InputLabel>Case Type</InputLabel>
+                                <FormControl sx={{ mb: 2 }}>
+                                    <InputLabel>Case Type</InputLabel>
                   <Select value={caseType} label="Case Type" onChange={(e) => setCaseType(e.target.value)}>
-                    <MenuItem value="uppercase">UPPERCASE</MenuItem>
-                    <MenuItem value="lowercase">lowercase</MenuItem>
-                    <MenuItem value="titlecase">Title Case</MenuItem>
-                  </Select>
-                </FormControl>
+                                        <MenuItem value="uppercase">UPPERCASE</MenuItem>
+                                        <MenuItem value="lowercase">lowercase</MenuItem>
+                                        <MenuItem value="titlecase">Title Case</MenuItem>
+                                    </Select>
+                                </FormControl>
                 <Button variant="contained" onClick={handleCaseConversion} sx={{ mb: 2 }}>
-                  Convert
-                </Button>
-                <TextField
-                  fullWidth
-                  multiline
-                  rows={6}
-                  label="Output Text"
-                  value={outputText}
-                  InputProps={{
-                    readOnly: true,
-                  }}
-                  variant="outlined"
-                />
-              </Box>
-            </Grid>
-          </Grid>
-        </TabPanel>
+                                    Convert
+                                </Button>
+                                <TextField
+                                    fullWidth
+                                    multiline
+                                    rows={6}
+                                    label="Output Text"
+                                    value={outputText}
+                                    InputProps={{
+                                        readOnly: true,
+                                    }}
+                                    variant="outlined"
+                                />
+                            </Box>
+                        </Grid>
+                    </Grid>
+                </TabPanel>
 
-        <TabPanel value={tabValue} index={1}>
+                <TabPanel value={tabValue} index={1}>
           <Grid container spacing={3}>
             <Grid item xs={12}>
               <Box sx={{ mb: 3, display: "flex", alignItems: "center", gap: 2 }}>
@@ -687,9 +687,9 @@ function example() {
               </Paper>
             </Grid>
           </Grid>
-        </TabPanel>
+                </TabPanel>
 
-        <TabPanel value={tabValue} index={2}>
+                <TabPanel value={tabValue} index={2}>
           <Grid container spacing={3}>
             <Grid item xs={12}>
               <Box sx={{ mb: 3 }}>
@@ -1016,9 +1016,9 @@ function example() {
               )}
             </Grid>
           </Grid>
-        </TabPanel>
+                </TabPanel>
 
-        <TabPanel value={tabValue} index={3}>
+                <TabPanel value={tabValue} index={3}>
           <Grid container spacing={3}>
             <Grid item xs={12} md={6}>
               <Paper variant="outlined" sx={{ p: 2 }}>
@@ -1113,9 +1113,9 @@ function example() {
               </Box>
             </Grid>
           </Grid>
-        </TabPanel>
+                </TabPanel>
 
-        <TabPanel value={tabValue} index={4}>
+                <TabPanel value={tabValue} index={4}>
           <Grid container spacing={3}>
             <Grid item xs={12}>
               <Box sx={{ mb: 3, display: "flex", alignItems: "center", gap: 2 }}>
@@ -1284,10 +1284,10 @@ function example() {
               </Paper>
             </Grid>
           </Grid>
-        </TabPanel>
-      </Paper>
-    </Container>
-  );
+                </TabPanel>
+            </Paper>
+        </Container>
+    );
 }
 
 function PatternExplanation({ pattern, parts }) {
@@ -1353,4 +1353,4 @@ function PatternExplanation({ pattern, parts }) {
   );
 }
 
-export default TextTools;
+export default TextTools; 

@@ -56,10 +56,10 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
-  fileFilter: (req, file, cb) => {
+    fileFilter: (req, file, cb) => {
     if (file.mimetype === "application/pdf") {
-      cb(null, true);
-    } else {
+            cb(null, true);
+        } else {
       cb(new Error("Only PDF files are allowed"));
     }
   },
@@ -70,7 +70,7 @@ const upload = multer({
 
 // Helper function to get file URL
 const getFileUrl = (filename) => {
-  return `/uploads/${filename}`;
+    return `/uploads/${filename}`;
 };
 
 // Helper function to create output filename
@@ -95,7 +95,7 @@ router.post(
   "/merge",
   upload.array("files"),
   asyncHandler(async (req, res) => {
-    if (!req.files || req.files.length < 2) {
+        if (!req.files || req.files.length < 2) {
       return res.status(400).json({ error: "Please upload at least 2 PDF files" });
     }
 
@@ -106,7 +106,7 @@ router.post(
     const filesToProcess = orderArray ? orderArray.map((index) => req.files[index]) : req.files;
 
     // Create a new PDF document
-    const mergedPdf = await PDFDocument.create();
+        const mergedPdf = await PDFDocument.create();
     const pdfDetails = [];
 
     // Merge all PDFs and collect details
@@ -119,7 +119,7 @@ router.post(
       const { width, height } = firstPage.getSize();
 
       // Copy all pages
-      const pages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
+                const pages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
       pages.forEach((page) => mergedPdf.addPage(page));
 
       pdfDetails.push({
@@ -161,7 +161,7 @@ router.post(
   "/split",
   upload.single("file"),
   asyncHandler(async (req, res) => {
-    if (!req.file) {
+            if (!req.file) {
       return res.status(400).json({ error: "No file uploaded" });
     }
 
@@ -253,11 +253,11 @@ router.post(
   upload.single("file"),
   [body("text").notEmpty().withMessage("Text is required"), body("page").isInt({ min: 1 }).withMessage("Invalid page number"), body("x").isFloat().withMessage("Invalid x coordinate"), body("y").isFloat().withMessage("Invalid y coordinate"), body("fontSize").optional().isInt({ min: 1, max: 72 })],
   asyncHandler(async (req, res) => {
-    if (!req.file) {
+            if (!req.file) {
       return res.status(400).json({ error: "No PDF file provided" });
-    }
+            }
 
-    const { text, page, x, y, fontSize = 12 } = req.body;
+            const { text, page, x, y, fontSize = 12 } = req.body;
     const pdfBytes = await fs.promises.readFile(req.file.path);
     const pdf = await PDFDocument.load(pdfBytes);
 
@@ -270,7 +270,7 @@ router.post(
     const pdfPage = pdf.getPage(pageIndex);
 
     // Add text with specified parameters
-    pdfPage.drawText(text, {
+            pdfPage.drawText(text, {
       x: parseFloat(x),
       y: parseFloat(y),
       size: parseInt(fontSize),
@@ -295,11 +295,11 @@ router.post(
   upload.single("file"),
   [body("signature").notEmpty().withMessage("Signature text is required"), body("page").isInt({ min: 1 }).withMessage("Invalid page number"), body("x").isFloat().withMessage("Invalid x coordinate"), body("y").isFloat().withMessage("Invalid y coordinate")],
   asyncHandler(async (req, res) => {
-    if (!req.file) {
+            if (!req.file) {
       return res.status(400).json({ error: "No PDF file provided" });
-    }
+            }
 
-    const { signature, page, x, y } = req.body;
+            const { signature, page, x, y } = req.body;
     const pdfBytes = await fs.promises.readFile(req.file.path);
     const pdf = await PDFDocument.load(pdfBytes);
 
@@ -312,16 +312,16 @@ router.post(
     const pdfPage = pdf.getPage(pageIndex);
 
     // Embed a standard font for the signature
-    const font = await pdf.embedFont(PDFDocument.StandardFonts.Helvetica);
+            const font = await pdf.embedFont(PDFDocument.StandardFonts.Helvetica);
 
     // Draw the signature with embedded font
-    pdfPage.drawText(signature, {
+            pdfPage.drawText(signature, {
       x: parseFloat(x),
       y: parseFloat(y),
-      size: 12,
-      font,
-      color: PDFDocument.rgb(0, 0, 0),
-    });
+                size: 12,
+                font,
+                color: PDFDocument.rgb(0, 0, 0),
+            });
 
     const modifiedPdfBytes = await pdf.save();
     const outputFilename = createOutputFilename("added-signature");
@@ -533,7 +533,7 @@ router.post(
         filename: outputFilename,
         message: action === "remove" ? "Password removed successfully" : "PDF protected successfully",
       });
-    } catch (error) {
+        } catch (error) {
       console.error("PDF Processing Error:", error);
 
       // Clean up any partial output
@@ -553,4 +553,4 @@ router.post(
   })
 );
 
-export default router;
+export default router; 

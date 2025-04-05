@@ -16,6 +16,8 @@ import privacyRoutes from "./routes/privacy.routes.js";
 import path from "path";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
+import { initializeSocket } from "./socket.js";
+import fs from "fs";
 
 // Load environment variables
 dotenv.config();
@@ -26,16 +28,29 @@ const app = express();
 // Connect to MongoDB
 // connectDB();
 
+// Initialize Socket.IO
+const { io, server } = initializeSocket(app);
+
 // Middleware
-app.use(cors());
+app.use(
+  cors({
+    origin: ["http://localhost:3000", "http://127.0.0.1:3000"],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
+    optionsSuccessStatus: 200,
+  })
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan("dev"));
 
 // Serve static files from uploads directory
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
+const uploadsPath = path.join(process.cwd(), "uploads");
+if (!fs.existsSync(uploadsPath)) {
+  fs.mkdirSync(uploadsPath, { recursive: true });
+}
+app.use("/uploads", express.static(uploadsPath));
 
 // Mount routes
 app.use("/api/text", textRoutes);
@@ -49,7 +64,7 @@ app.use("/api/data", dataRoutes);
 app.use("/api/privacy", privacyRoutes);
 
 // Health check endpoint
-app.get("/health", (req, res) => {
+app.get("/api/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
@@ -66,7 +81,7 @@ app.use((req, res) => {
 
 // Start server
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
 });

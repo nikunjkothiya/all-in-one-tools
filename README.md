@@ -53,6 +53,69 @@ To verify QPDF is installed correctly, run:
 qpdf --version
 ```
 
+### FFmpeg Installation
+
+For media processing functionality (video/audio conversion, compression, trimming), FFmpeg must be installed on your system:
+
+#### Windows:
+
+1. Download FFmpeg from the official website: https://ffmpeg.org/download.html
+2. Extract the downloaded zip file to a location on your computer (e.g., `C:\Program Files\ffmpeg\`)
+3. Add FFmpeg to system PATH:
+   - Open Windows Settings
+   - Search for "Environment Variables"
+   - Click "Edit the system environment variables"
+   - Click "Environment Variables"
+   - Under "System Variables", find and select "Path"
+   - Click "Edit"
+   - Click "New"
+   - Add the path to the FFmpeg bin directory (e.g., `C:\Program Files\ffmpeg\bin`)
+   - Click "OK" on all windows
+4. Restart your computer or open a new command prompt
+
+Alternative installation using Chocolatey:
+
+```bash
+choco install ffmpeg
+```
+
+Alternative installation using Scoop:
+
+```bash
+scoop install ffmpeg
+```
+
+#### Linux:
+
+```bash
+# Ubuntu/Debian
+sudo apt update
+sudo apt install ffmpeg
+
+# CentOS/RHEL
+sudo yum install epel-release
+sudo yum install ffmpeg
+
+# Fedora
+sudo dnf install ffmpeg
+```
+
+#### macOS:
+
+```bash
+brew install ffmpeg
+```
+
+### Verifying FFmpeg Installation
+
+To verify FFmpeg is installed correctly, run:
+
+```bash
+ffmpeg -version
+```
+
+Note: All processed media files (converted, compressed, trimmed, etc.) will be automatically deleted from the server after 2 hours. Make sure to download your processed files immediately after processing.
+
 ## Features
 
 ### Text Tools
@@ -187,6 +250,8 @@ Note: For the QPDF_PATH:
 
 The PDF password protection feature requires QPDF binary to be installed on your system. Make sure to install it before using this functionality. The application will check for QPDF availability and show appropriate error messages if it's not found.
 
+The media processing features (video/audio conversion, compression, trimming) require FFmpeg to be installed on your system. Make sure to install FFmpeg before using these functionalities. The application will check for FFmpeg availability and show appropriate error messages if it's not found. All processed media files will be automatically deleted from the server after 2 hours, so make sure to download your processed files immediately after processing.
+
 ## License
 
-[Your License]
+NIKUNJ KOTHIYA

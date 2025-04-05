@@ -1,9 +1,10 @@
 import axios from "axios";
 
-const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
+const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
+const API_BASE = process.env.REACT_APP_API_BASE || "/api";
 
 const api = axios.create({
-  baseURL: API_URL,
+  baseURL: API_URL + API_BASE,
   headers: {
     "Content-Type": "application/json",
   },
@@ -183,26 +184,26 @@ export const fileToolsApi = {
 
 // Media Tools API
 export const mediaToolsApi = {
-  cutAudio: (formData) =>
-    api.post("/media/cut-audio", formData, {
+  convertMedia: (formData) =>
+    api.post("/media/convert", formData, {
       headers: {
         "Content-Type": "multipart/form-data",
       },
     }),
-  convertToGif: (formData) =>
-    api.post("/media/to-gif", formData, {
+  compressMedia: (formData) =>
+    api.post("/media/compress", formData, {
       headers: {
         "Content-Type": "multipart/form-data",
       },
     }),
-  generateThumbnail: (formData) =>
-    api.post("/media/thumbnail", formData, {
+  trimMedia: (formData) =>
+    api.post("/media/trim", formData, {
       headers: {
         "Content-Type": "multipart/form-data",
       },
     }),
-  editMetadata: (formData) =>
-    api.post("/media/metadata", formData, {
+  changeSpeed: (formData) =>
+    api.post("/media/speed", formData, {
       headers: {
         "Content-Type": "multipart/form-data",
       },
