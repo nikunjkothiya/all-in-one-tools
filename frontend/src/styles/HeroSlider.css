@@ -1,0 +1,183 @@
+/* Hero Slider Custom Styles */
+
+.hero-slider {
+    height: 100%;
+}
+
+/* Custom styles for slick dots */
+.hero-slider .slick-dots {
+    bottom: 20px;
+}
+
+.hero-slider .slick-dots li button:before {
+    content: "";
+}
+
+.hero-slider .slick-dots li {
+    margin: 0 5px;
+}
+
+/* Animation for slide transitions */
+.hero-slider .slick-slide {
+    opacity: 0;
+    transition: opacity 0.5s ease;
+}
+
+.hero-slider .slick-active {
+    opacity: 1;
+}
+
+/* Animation for the rotating text */
+.animated-text {
+    display: inline-block;
+    font-size: 2rem;
+    font-weight: 600;
+    position: relative;
+    animation: textFadeIn 0.5s ease-in-out;
+    color: #ff7b00;
+    /* Orange color for all animated text */
+}
+
+/* Add a blinking cursor effect */
+.animated-text::after {
+    content: '|';
+    position: absolute;
+    right: -10px;
+    color: #ff7b00;
+    opacity: 1;
+    animation: cursor-blink 0.7s infinite;
+}
+
+@keyframes cursor-blink {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0;
+    }
+}
+
+@keyframes textFadeIn {
+    0% {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Make slider responsive */
+@media (max-width: 600px) {
+    .hero-slider .slick-dots {
+        bottom: 10px;
+    }
+
+    .animated-text {
+        font-size: 1.6rem;
+    }
+}
+
+/* Ensure the slider fills its container */
+.hero-slider .slick-list,
+.hero-slider .slick-track,
+.hero-slider .slick-slide,
+.hero-slider .slick-slide>div {
+    height: 100%;
+}
+
+/* Styling for slide text animations */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.hero-slider h1,
+.hero-slider h6,
+.hero-slider button {
+    animation: fadeIn 0.8s ease forwards;
+}
+
+.hero-slider h1 {
+    animation-delay: 0.2s;
+}
+
+.hero-slider h6 {
+    animation-delay: 0.4s;
+}
+
+.hero-slider button {
+    animation-delay: 0.6s;
+}
+
+/* Slider navigation arrows */
+.hero-slider .slick-prev,
+.hero-slider .slick-next {
+    z-index: 10;
+    width: 40px;
+    height: 40px;
+    background-color: rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    transition: all 0.3s ease;
+}
+
+.hero-slider .slick-prev {
+    left: 15px;
+}
+
+.hero-slider .slick-next {
+    right: 15px;
+}
+
+.hero-slider .slick-prev:hover,
+.hero-slider .slick-next:hover {
+    background-color: rgba(255, 255, 255, 0.4);
+}
+
+.hero-slider .slick-prev:before,
+.hero-slider .slick-next:before {
+    font-size: 24px;
+    opacity: 0.8;
+}
+
+/* For smaller screens, make the navigation more compact */
+@media (max-width: 600px) {
+    .hero-slider .slick-prev {
+        left: 5px;
+    }
+
+    .hero-slider .slick-next {
+        right: 5px;
+    }
+
+    .hero-slider .slick-prev,
+    .hero-slider .slick-next {
+        width: 30px;
+        height: 30px;
+    }
+
+    .hero-slider .slick-prev:before,
+    .hero-slider .slick-next:before {
+        font-size: 20px;
+    }
+
+    .hero-slider .slick-dots {
+        bottom: 10px;
+    }
+
+    .animated-text {
+        font-size: 1.6rem;
+    }
+}

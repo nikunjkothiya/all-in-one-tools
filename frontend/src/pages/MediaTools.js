@@ -243,21 +243,21 @@ const MediaTools = () => {
   };
 
   return (
-    <Container maxWidth="lg">
-      <Box sx={{ py: 3 }}>
-        <Typography variant="h4" gutterBottom>
+    <Container maxWidth="xl">
+      <Box sx={{ py: 1 }}>
+        <Typography variant="h5" gutterBottom sx={{ mt: 0, mb: 1 }}>
           Media Tools
         </Typography>
 
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
-            {error}
-          </Alert>
-        )}
-
-        {success && (
-          <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess(null)}>
-            {success}
+        {(error || success) && (
+          <Alert
+            severity={error ? "error" : "success"}
+            sx={{ mb: 1 }}
+            onClose={() => {
+              error ? setError(null) : setSuccess(null);
+            }}
+          >
+            {error || success}
           </Alert>
         )}
 

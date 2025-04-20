@@ -3,6 +3,7 @@ import { Box, Container, Paper, Typography, Tabs, Tab, Button, List, ListItem, L
 import { Upload, Delete, MergeType, CallSplit, Edit, Download, Add, RemoveCircleOutline, DragIndicator, Save, RotateLeft, RotateRight, Lock } from "@mui/icons-material";
 import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
 import { pdfToolsApi } from "../services/api";
+import { useTheme } from "@mui/material/styles";
 
 function PdfTools() {
   const [activeTab, setActiveTab] = useState(0);
@@ -33,6 +34,8 @@ function PdfTools() {
 
   const [processedPdfUrl, setProcessedPdfUrl] = useState(null);
   const [downloading, setDownloading] = useState(false);
+
+  const theme = useTheme();
 
   const handleTabChange = (event, newValue) => {
     setActiveTab(newValue);
@@ -224,18 +227,125 @@ function PdfTools() {
   };
 
   const renderFileList = () => (
-    <List>
-      {selectedFiles.map((file, index) => (
-        <ListItem key={index} sx={{ bgcolor: "background.paper", mb: 1, borderRadius: 1 }}>
-          <ListItemText primary={file.name} secondary={`${(file.size / 1024 / 1024).toFixed(2)} MB`} />
-          <ListItemSecondaryAction>
-            <IconButton edge="end" onClick={() => handleDeleteFile(index)}>
-              <Delete />
-            </IconButton>
-          </ListItemSecondaryAction>
-        </ListItem>
-      ))}
-    </List>
+    <Box sx={{ my: 2 }}>
+      {selectedFiles.length > 0 ? (
+        <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 500, color: 'text.secondary' }}>
+          Selected PDF File{selectedFiles.length > 1 ? 's' : ''}:
+        </Typography>
+      ) : null}
+      
+      <Grid container spacing={2}>
+        {selectedFiles.map((file, index) => (
+          <Grid item xs={12} sm={6} md={4} key={index}>
+            <Paper
+              elevation={3}
+              sx={{
+                p: 2,
+                position: 'relative',
+                borderRadius: 2,
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  boxShadow: 6,
+                  transform: 'translateY(-2px)',
+                },
+                bgcolor: theme.palette.background.paper,
+                border: '1px solid',
+                borderColor: 'divider',
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+              }}
+            >
+              {/* PDF Icon/Preview */}
+              <Box 
+                sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  mb: 2,
+                  position: 'relative',
+                  bgcolor: theme.palette.primary.light + '20',
+                  borderRadius: 1,
+                  p: 2,
+                  height: '100px',
+                }}
+              >
+                <Typography 
+                  variant="h1" 
+                  sx={{
+                    color: theme.palette.primary.main,
+                    fontWeight: 'bold',
+                    fontSize: '3rem',
+                    position: 'absolute',
+                    opacity: 0.7,
+                  }}
+                >
+                  PDF
+                </Typography>
+                
+                {/* File extension badge */}
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    bottom: 8,
+                    right: 8,
+                    bgcolor: theme.palette.primary.main,
+                    color: 'white',
+                    px: 1,
+                    py: 0.5,
+                    borderRadius: 1,
+                    fontSize: '0.7rem',
+                    fontWeight: 'bold',
+                  }}
+                >
+                  .PDF
+                </Box>
+              </Box>
+              
+              {/* File details */}
+              <Box sx={{ flexGrow: 1 }}>
+                <Typography 
+                  variant="subtitle2" 
+                  sx={{ 
+                    fontWeight: 'bold',
+                    mb: 0.5,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    maxWidth: '100%',
+                  }}
+                  title={file.name}
+                >
+                  {file.name}
+                </Typography>
+                
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontSize: '0.75rem' }}>
+                  {`${(file.size / 1024 / 1024).toFixed(2)} MB • Added ${new Date().toLocaleTimeString()}`}
+                </Typography>
+              </Box>
+              
+              {/* Delete button */}
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
+                <Button
+                  variant="outlined"
+                  color="error"
+                  size="small"
+                  startIcon={<Delete />}
+                  onClick={() => handleDeleteFile(index)}
+                  sx={{ 
+                    borderRadius: 4,
+                    fontSize: '0.75rem',
+                    textTransform: 'none',
+                  }}
+                >
+                  Remove
+                </Button>
+              </Box>
+            </Paper>
+          </Grid>
+        ))}
+      </Grid>
+    </Box>
   );
 
   const renderDownloadButton = () => {
@@ -255,13 +365,172 @@ function PdfTools() {
           return `protected-${originalName}-${timestamp}.pdf`;
         default:
           return `processed-${originalName}-${timestamp}.pdf`;
-        }
+      }
     };
 
     return (
-      <Button variant="contained" color="primary" onClick={() => handleDownload(getFilename())} disabled={downloading} startIcon={downloading ? <CircularProgress size={20} /> : <Download />} sx={{ mt: 2 }}>
-        {downloading ? "Downloading..." : "Download PDF"}
-      </Button>
+      <Paper 
+        elevation={3} 
+        sx={{ 
+          p: 3, 
+          mt: 3, 
+          textAlign: 'center', 
+          borderRadius: 2,
+          border: '1px solid',
+          borderColor: 'divider',
+          background: `linear-gradient(145deg, ${theme.palette.background.paper}, ${theme.palette.primary.light + '20'})`,
+        }}
+      >
+        <Typography variant="h6" gutterBottom sx={{ color: theme.palette.primary.main, fontWeight: 600 }}>
+          PDF Processed Successfully!
+        </Typography>
+        
+        <Box 
+          sx={{ 
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            my: 2,
+            height: '120px',
+            position: 'relative',
+            borderRadius: 1,
+            bgcolor: 'rgba(0,0,0,0.04)',
+          }}
+        >
+          <Box 
+            sx={{ 
+              width: '80px',
+              height: '100px',
+              bgcolor: 'white',
+              boxShadow: 2,
+              borderRadius: 1,
+              position: 'relative',
+              overflow: 'hidden',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              border: '1px solid',
+              borderColor: theme.palette.divider,
+              transform: 'rotate(-3deg)',
+            }}
+          >
+            <Typography 
+              variant="h5" 
+              sx={{
+                color: theme.palette.primary.main,
+                fontWeight: 'bold',
+                fontSize: '1.5rem',
+                opacity: 0.8,
+              }}
+            >
+              PDF
+            </Typography>
+          </Box>
+          
+          <Box 
+            sx={{ 
+              width: '80px',
+              height: '100px',
+              bgcolor: 'white',
+              boxShadow: 3,
+              borderRadius: 1,
+              position: 'absolute',
+              zIndex: 2,
+              overflow: 'hidden',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              border: '1px solid',
+              borderColor: theme.palette.divider,
+            }}
+          >
+            <Typography 
+              variant="h5" 
+              sx={{
+                color: theme.palette.primary.main,
+                fontWeight: 'bold',
+                fontSize: '1.5rem',
+              }}
+            >
+              PDF
+            </Typography>
+            
+            {/* Success checkmark */}
+            <Box
+              sx={{
+                position: 'absolute',
+                top: -15,
+                right: -15,
+                bgcolor: theme.palette.success.main,
+                color: 'white',
+                width: 30,
+                height: 30,
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                border: '2px solid white',
+                boxShadow: 2,
+              }}
+            >
+              ✓
+            </Box>
+          </Box>
+          
+          <Box 
+            sx={{ 
+              width: '80px',
+              height: '100px',
+              bgcolor: 'white',
+              boxShadow: 2,
+              borderRadius: 1,
+              position: 'relative',
+              overflow: 'hidden',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              border: '1px solid',
+              borderColor: theme.palette.divider,
+              transform: 'rotate(3deg)',
+            }}
+          >
+            <Typography 
+              variant="h5" 
+              sx={{
+                color: theme.palette.primary.main,
+                fontWeight: 'bold',
+                fontSize: '1.5rem',
+                opacity: 0.8,
+              }}
+            >
+              PDF
+            </Typography>
+          </Box>
+        </Box>
+        
+        <Typography variant="body2" sx={{ mb: 3, color: 'text.secondary' }}>
+          Your PDF has been processed and is ready to download.
+        </Typography>
+        
+        <Button 
+          variant="contained" 
+          color="primary" 
+          onClick={() => handleDownload(getFilename())} 
+          disabled={downloading} 
+          startIcon={downloading ? <CircularProgress size={20} /> : <Download />} 
+          sx={{ 
+            px: 4, 
+            py: 1.2,
+            borderRadius: 8,
+            textTransform: 'none',
+            boxShadow: 3,
+            fontWeight: 600,
+            fontSize: '1rem',
+          }}
+        >
+          {downloading ? "Downloading..." : "Download PDF"}
+        </Button>
+      </Paper>
     );
   };
 
@@ -445,99 +714,109 @@ function PdfTools() {
     </Dialog>
   );
 
+  const renderFileSelectSection = () => (
+    <Paper 
+      elevation={2} 
+      sx={{ 
+        p: 2, 
+        borderRadius: 2,
+        mb: 3,
+        border: '2px dashed',
+        borderColor: theme.palette.primary.light,
+        bgcolor: theme.palette.primary.light + '08',
+      }}
+    >
+      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+        <Upload sx={{ fontSize: 40, color: theme.palette.primary.main, mb: 1, opacity: 0.8 }} />
+        
+        <Typography variant="h6" sx={{ mb: 1, fontWeight: 600 }}>
+          Select PDF File{activeTab === 1 ? 's' : ''}
+        </Typography>
+        
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          {activeTab === 0 ? "Choose a PDF file to split into multiple documents" :
+           activeTab === 1 ? "Select multiple PDF files to combine into one document" :
+           activeTab === 2 ? "Choose a PDF file to edit its pages or content" :
+           "Select a PDF file to add or remove password protection"}
+        </Typography>
+        
+        <Button 
+          variant="contained" 
+          onClick={() => fileInputRef.current.click()} 
+          startIcon={<Upload />}
+          sx={{ 
+            px: 3, 
+            py: 1,
+            borderRadius: 2,
+            boxShadow: 2
+          }}
+        >
+          Browse Files
+        </Button>
+        <input type="file" hidden multiple={activeTab === 1} accept=".pdf" ref={fileInputRef} onChange={handleFileSelect} />
+        
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 2, fontSize: '0.75rem' }}>
+          Maximum file size: 50MB per PDF
+        </Typography>
+      </Box>
+    </Paper>
+  );
+
   return (
     <Container maxWidth="xl">
-      <Box sx={{ py: 4 }}>
-        <Typography variant="h4" gutterBottom>
-                    PDF Tools
-                </Typography>
+      <Box sx={{ py: 1 }}>
+        <Typography variant="h5" gutterBottom sx={{ mt: 0, mb: 1 }}>
+          PDF Tools
+        </Typography>
 
         {(error || success) && (
-          <Alert severity={error ? "error" : "success"} sx={{ mb: 2 }} onClose={() => (error ? setError(null) : setSuccess(null))}>
+          <Alert severity={error ? "error" : "success"} sx={{ mb: 1 }} onClose={() => (error ? setError(null) : setSuccess(null))}>
             {error || success}
-                    </Alert>
-                )}
+          </Alert>
+        )}
 
-        <Paper sx={{ mb: 3 }}>
+        <Paper sx={{ mb: 2 }}>
           <Tabs value={activeTab} onChange={handleTabChange} variant="scrollable" scrollButtons="auto">
-            <Tab label="Split PDF" />
-            <Tab label="Merge PDFs" />
-            <Tab label="Edit PDF" />
-            <Tab label="Protect PDF" />
+            <Tab label="Split PDF" icon={<CallSplit />} iconPosition="start" />
+            <Tab label="Merge PDFs" icon={<MergeType />} iconPosition="start" />
+            <Tab label="Edit PDF" icon={<Edit />} iconPosition="start" />
+            <Tab label="Protect PDF" icon={<Lock />} iconPosition="start" />
           </Tabs>
         </Paper>
 
-                <Grid container spacing={3}>
-                    <Grid item xs={12} md={6}>
-            <Paper sx={{ p: 3 }}>
-                                <Typography variant="h6" gutterBottom>
-                                    Upload PDF Files
-                                </Typography>
-
-                                <input
-                                    type="file"
-                hidden
-                ref={fileInputRef}
-                                    onChange={handleFileSelect}
-                accept=".pdf"
-                multiple={activeTab === 1} // Allow multiple files only for merge
-              />
-
-              <Box
-                sx={{
-                  border: "2px dashed",
-                  borderColor: "grey.300",
-                  borderRadius: 2,
-                  p: 3,
-                  textAlign: "center",
-                  cursor: "pointer",
-                  "&:hover": {
-                    borderColor: "primary.main",
-                    bgcolor: "action.hover",
-                  },
-                }}
-                onClick={() => fileInputRef.current.click()}
+        {selectedFiles.length === 0 ? renderFileSelectSection() : 
+          <Paper sx={{ p: 2, mb: 3, borderRadius: 2 }}>
+            {renderFileList()}
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+              <Button 
+                variant="outlined" 
+                onClick={() => fileInputRef.current.click()} 
+                startIcon={<Upload />}
+                sx={{ mx: 1 }}
               >
-                <Upload sx={{ fontSize: 48, color: "grey.500", mb: 2 }} />
-                <Typography variant="h6" color="textSecondary">
-                  Click to upload PDF{activeTab === 1 ? "s" : ""}
-                </Typography>
-                <Typography variant="body2" color="textSecondary">
-                  or drag and drop
-                </Typography>
-              </Box>
+                Add More File{activeTab === 1 ? 's' : ''}
+              </Button>
+              <Button 
+                variant="outlined" 
+                color="error" 
+                onClick={() => setSelectedFiles([])} 
+                startIcon={<Delete />}
+                sx={{ mx: 1 }}
+              >
+                Clear All
+              </Button>
+            </Box>
+          </Paper>
+        }
 
-                                {selectedFiles.length > 0 && (
-                                    <Box sx={{ mt: 2 }}>
-                  <Typography variant="subtitle1" gutterBottom>
-                    Selected Files:
-                                        </Typography>
-                  {renderFileList()}
-                                    </Box>
-                                )}
-            </Paper>
-                    </Grid>
-
-                    <Grid item xs={12} md={6}>
-            <Paper sx={{ p: 3 }}>
-                                <Typography variant="h6" gutterBottom>
-                                    PDF Operations
-                                </Typography>
-              {loading ? (
-                <Box sx={{ display: "flex", justifyContent: "center", p: 3 }}>
-                  <CircularProgress />
-                                </Box>
-              ) : (
-                renderTabContent()
-              )}
-            </Paper>
-                    </Grid>
-                </Grid>
+        <Paper sx={{ p: 2, borderRadius: 2 }}>
+          <Box sx={{ mt: 1 }}>{renderTabContent()}</Box>
+        </Paper>
 
         {renderEditDialog()}
-            </Box>
-        </Container>
-    );
+      </Box>
+    </Container>
+  );
 }
 
 export default PdfTools;

@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Box, Container, Grid, Card, CardContent, Typography, Slider, TextField, Button, Select, MenuItem, FormControl, InputLabel, Tabs, Tab, IconButton, Tooltip, CircularProgress, Switch, FormControlLabel, Paper, Stack, ButtonGroup, Divider, Accordion, AccordionSummary, AccordionDetails } from "@mui/material";
+import { Box, Container, Grid, Card, CardContent, Typography, Slider, TextField, Button, Select, MenuItem, FormControl, InputLabel, Tabs, Tab, IconButton, Tooltip, CircularProgress, Switch, FormControlLabel, Paper, Stack, ButtonGroup, Divider, Accordion, AccordionSummary, AccordionDetails, useTheme } from "@mui/material";
 import { Download, FileDownload, ColorLens, Save, Edit, Image, Settings, ExpandMore, Remove, Add } from "@mui/icons-material";
 import { loaderToolsApi } from "../services/api";
 import html2canvas from "html2canvas";
 import { saveAs } from "file-saver";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { atomDark } from "react-syntax-highlighter/dist/esm/styles/prism";
+import { enqueueSnackbar } from "notistack";
 
 // Loader types with their specific options
 const loaderTypes = [
@@ -155,6 +158,128 @@ const loaderTypes = [
     },
     customOptions: ["color", "speed", "size"],
   },
+  // New loader types
+  {
+    id: "pulse",
+    name: "Pulse",
+    defaultOptions: {
+      colors: ["#e15b64"],
+      speed: 0.8,
+      size: 100,
+      scale: 1.0,
+      opacity: 0.8,
+    },
+    customOptions: ["color", "speed", "size"],
+  },
+  {
+    id: "wave",
+    name: "Wave",
+    defaultOptions: {
+      colors: ["#e15b64", "#f47e60", "#f8b26a"],
+      speed: 0.8,
+      size: 100,
+      scale: 1.0,
+      opacity: 0.8,
+    },
+    customOptions: ["multiColor", "speed", "size"],
+  },
+  {
+    id: "blocks",
+    name: "Blocks",
+    defaultOptions: {
+      colors: ["#e15b64", "#f47e60", "#f8b26a", "#abbd81"],
+      speed: 0.8,
+      size: 100,
+      scale: 1.0,
+      opacity: 0.8,
+    },
+    customOptions: ["multiColor", "speed", "size"],
+  },
+  {
+    id: "cube",
+    name: "Cube",
+    defaultOptions: {
+      colors: ["#e15b64"],
+      speed: 0.8,
+      size: 100,
+      scale: 1.0,
+      opacity: 0.8,
+    },
+    customOptions: ["color", "speed", "size"],
+  },
+  {
+    id: "square",
+    name: "Square",
+    defaultOptions: {
+      colors: ["#e15b64"],
+      speed: 0.8,
+      size: 100,
+      scale: 1.0,
+      opacity: 0.8,
+    },
+    customOptions: ["color", "speed", "size"],
+  },
+  {
+    id: "squircle",
+    name: "Squircle",
+    defaultOptions: {
+      colors: ["#e15b64"],
+      speed: 0.8,
+      size: 100,
+      scale: 1.0,
+      opacity: 0.8,
+    },
+    customOptions: ["color", "speed", "size"],
+  },
+  {
+    id: "folding-cube",
+    name: "Folding",
+    defaultOptions: {
+      colors: ["#e15b64"],
+      speed: 0.8,
+      size: 100,
+      scale: 1.0,
+      opacity: 0.8,
+    },
+    customOptions: ["color", "speed", "size"],
+  },
+  {
+    id: "dot-spin",
+    name: "Dot Spin",
+    defaultOptions: {
+      colors: ["#e15b64"],
+      speed: 0.8,
+      size: 100,
+      scale: 1.0,
+      opacity: 0.8,
+    },
+    customOptions: ["color", "speed", "size"],
+  },
+  {
+    id: "clock",
+    name: "Clock",
+    defaultOptions: {
+      colors: ["#e15b64"],
+      speed: 0.8,
+      size: 100,
+      scale: 1.0,
+      opacity: 0.8,
+      thickness: 4,
+    },
+    customOptions: ["color", "speed", "thickness"],
+  },
+  {
+    id: "roller",
+    name: "Roller",
+    defaultOptions: {
+      colors: ["#e15b64", "#f47e60", "#f8b26a", "#abbd81"],
+      speed: 0.8,
+      size: 100,
+      scale: 1.0,
+      opacity: 0.8,
+    },
+    customOptions: ["multiColor", "speed", "size"],
+  },
 ];
 
 // Sample preset loaders
@@ -165,6 +290,15 @@ const presetLoaders = [
   { id: "bars1", type: "bars", colors: ["#f000ff", "#f47e60", "#f8b26a", "#abbd81"], size: 50, speed: 1 },
   { id: "circles1", type: "circles", color: "#001eff", size: 50, speed: 1, thickness: 3 },
   { id: "dual-ring1", type: "dual-ring", color: "#ff0000", size: 50, speed: 1 },
+  { id: "wave1", type: "wave", colors: ["#FF5722", "#FF9800", "#FFC107", "#FFEB3B"], size: 60, speed: 0.8 },
+  { id: "pulse1", type: "pulse", color: "#9C27B0", size: 50, speed: 1.2 },
+  { id: "cube1", type: "cube", color: "#3F51B5", size: 60, speed: 0.7 },
+  { id: "square1", type: "square", color: "#2196F3", size: 50, speed: 1.5 },
+  { id: "roller1", type: "roller", colors: ["#00BCD4", "#4CAF50", "#8BC34A", "#CDDC39"], size: 60, speed: 1 },
+  { id: "clock1", type: "clock", color: "#E91E63", size: 55, speed: 1, thickness: 3 },
+  { id: "dot-spin1", type: "dot-spin", color: "#673AB7", size: 55, speed: 0.9 },
+  { id: "folding-cube1", type: "folding-cube", color: "#009688", size: 50, speed: 0.8 },
+  { id: "squircle1", type: "squircle", color: "#FF4081", size: 45, speed: 1.2 },
 ];
 
 const LoaderTools = () => {
@@ -183,6 +317,20 @@ const LoaderTools = () => {
   const [scale, setScale] = useState(1.0);
   const [opacity, setOpacity] = useState(0.8);
   const [thickness, setThickness] = useState(4);
+
+  const theme = useTheme();
+
+  const [loader, setLoader] = useState({
+    type: "spinner",
+    size: 50,
+    speed: 1.2,
+    color: "#3f51b5",
+    thickness: 4,
+  });
+
+  const [cssCode, setCssCode] = useState("");
+  const [htmlCode, setHtmlCode] = useState("");
+  const [showCode, setShowCode] = useState(false);
 
   // Find the current loader type
   const currentLoader = loaderTypes.find((type) => type.id === selectedType) || loaderTypes[0];
@@ -358,6 +506,66 @@ const LoaderTools = () => {
       setThickness(loader.defaultOptions.thickness);
     }
   }, [selectedType]);
+
+  // Add CSS animations to head for the preview
+  useEffect(() => {
+    // Define keyframes for animations
+    const styleElement = document.createElement("style");
+    styleElement.type = "text/css";
+    styleElement.innerHTML = `
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      @keyframes dual-ring {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      @keyframes ripple {
+        0% { transform: scale(0); opacity: 1; }
+        100% { transform: scale(1); opacity: 0; }
+      }
+      @keyframes bounce {
+        0%, 80%, 100% { transform: scale(0); }
+        40% { transform: scale(1); }
+      }
+      @keyframes grid {
+        0%, 100% { transform: translate(1px, 1px); }
+        12.5% { transform: translate(30px, 1px); }
+        25% { transform: translate(60px, 1px); }
+        37.5% { transform: translate(60px, 30px); }
+        50% { transform: translate(60px, 60px); }
+        62.5% { transform: translate(30px, 60px); }
+        75% { transform: translate(1px, 60px); }
+        87.5% { transform: translate(1px, 30px); }
+      }
+      @keyframes hourglass-top {
+        0% { transform: rotate(0); }
+        50% { transform: rotate(180deg); }
+        100% { transform: rotate(180deg); }
+      }
+      @keyframes hourglass-bottom {
+        0% { transform: rotate(0); }
+        50% { transform: rotate(0); }
+        100% { transform: rotate(180deg); }
+      }
+      @keyframes ellipsis {
+        0%, 80%, 100% { transform: scale(0); }
+        40% { transform: scale(1); }
+      }
+      @keyframes hearts {
+        0% { transform: scale(0.8) rotate(45deg); opacity: 0.8; }
+        50% { transform: scale(1.2) rotate(45deg); opacity: 1; }
+        100% { transform: scale(0.8) rotate(45deg); opacity: 0.8; }
+      }
+    `;
+
+    document.head.appendChild(styleElement);
+
+    return () => {
+      document.head.removeChild(styleElement);
+    };
+  }, []);
 
   const handleTypeChange = (type) => {
     setSelectedType(type);
@@ -574,29 +782,36 @@ const LoaderTools = () => {
   };
 
   const renderAllLoaderTypes = () => {
+    // Filter to only show the specific loaders shown in the image
+    const displayedLoaderTypes = ["spinner", "ring", "dual-ring", "ripple", "dots", "grid", "hourglass", "ellipsis", "pie", "bars", "circles", "hearts"];
+
+    // Find the loader types that match our display list
+    const displayLoaders = loaderTypes.filter((loader) => displayedLoaderTypes.includes(loader.id));
+
     return (
       <Box sx={{ mt: 2 }}>
-        <Grid container spacing={1}>
-          {loaderTypes.map((loader) => {
+        <Grid container spacing={2}>
+          {displayLoaders.map((loader) => {
             const defaultOptions = loader.defaultOptions;
             return (
-              <Grid item xs={3} sm={3} md={2} key={loader.id}>
+              <Grid item xs={6} sm={4} md={2} key={loader.id}>
                 <Paper
                   sx={{
-                    p: 1.5,
-                    height: 80,
+                    p: 2,
+                    height: 100,
                     display: "flex",
                     flexDirection: "column",
                     alignItems: "center",
                     justifyContent: "center",
                     cursor: "pointer",
                     transition: "all 0.2s",
-                    bgcolor: selectedType === loader.id ? "primary.light" : "background.paper",
-                    color: selectedType === loader.id ? "primary.contrastText" : "text.primary",
+                    bgcolor: selectedType === loader.id ? "rgba(0, 0, 0, 0.03)" : "background.paper",
+                    border: selectedType === loader.id ? `1px solid ${theme.palette.primary.main}` : "1px solid #e0e0e0",
+                    borderRadius: 1,
                     "&:hover": {
-                      transform: "scale(1.05)",
-                      boxShadow: 3,
-                      bgcolor: selectedType === loader.id ? "primary.main" : "background.paper",
+                      transform: "translateY(-2px)",
+                      boxShadow: 2,
+                      bgcolor: "rgba(0, 0, 0, 0.02)",
                     },
                   }}
                   onClick={() => handleTypeChange(loader.id)}
@@ -608,20 +823,20 @@ const LoaderTools = () => {
                       display: "flex",
                       justifyContent: "center",
                       alignItems: "center",
-                      mb: 0.5,
+                      mb: 1,
                     }}
                     dangerouslySetInnerHTML={{
                       __html: generateLoaderHTML(loader.id, {
-                        colors: defaultOptions.colors,
+                        colors: defaultOptions.colors || [theme.palette.primary.main],
                         speed: 1,
-                        size: 30,
+                        size: 35,
                         scale: 0.8,
                         opacity: 1,
                         thickness: defaultOptions.thickness || 4,
                       }),
                     }}
                   />
-                  <Typography variant="caption" align="center" noWrap>
+                  <Typography variant="body2" align="center" noWrap>
                     {loader.name}
                   </Typography>
                 </Paper>
@@ -635,8 +850,8 @@ const LoaderTools = () => {
 
   const renderSingleColorInput = () => {
     return (
-      <Box sx={{ mb: 2 }}>
-        <Typography variant="body2" gutterBottom>
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="body2" gutterBottom fontWeight="500">
           Color
         </Typography>
         <TextField
@@ -647,7 +862,7 @@ const LoaderTools = () => {
           size="small"
           sx={{
             "& input": {
-              height: "35px",
+              height: "40px",
               cursor: "pointer",
             },
           }}
@@ -688,46 +903,33 @@ const LoaderTools = () => {
 
   const renderColorPresets = () => {
     return (
-      <Box sx={{ mb: 2 }}>
-        <Typography variant="body2" gutterBottom>
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="body2" gutterBottom fontWeight="500">
           Color Presets
         </Typography>
-        <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
-          {colorPresets.slice(0, currentLoader.customOptions.includes("multiColor") ? 10 : 8).map((preset, index) => (
-            <Box
-              key={index}
-              sx={{
-                width: 28,
-                height: 28,
-                borderRadius: "4px",
-                cursor: "pointer",
-                overflow: "hidden",
-                border: "1px solid #ddd",
-                "&:hover": {
-                  transform: "scale(1.1)",
-                },
-              }}
-              onClick={() => setColors(currentLoader.customOptions.includes("multiColor") ? [...preset] : [preset[0]])}
-            >
-              {preset.length === 1 ? (
+        <Grid container spacing={0.75}>
+          {colorPresets.slice(0, 8).map((preset, index) => (
+            <Grid item key={index}>
+              <Box
+                sx={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                  overflow: "hidden",
+                  border: colors[0] === preset[0] ? `2px solid ${theme.palette.primary.main}` : "1px solid #e0e0e0",
+                  "&:hover": {
+                    transform: "scale(1.05)",
+                    boxShadow: 1,
+                  },
+                }}
+                onClick={() => setColors(currentLoader.customOptions.includes("multiColor") ? [...preset] : [preset[0]])}
+              >
                 <Box sx={{ width: "100%", height: "100%", bgcolor: preset[0] }} />
-              ) : (
-                <Box sx={{ display: "flex", flexWrap: "wrap", width: "100%", height: "100%" }}>
-                  {preset.map((color, i) => (
-                    <Box
-                      key={i}
-                      sx={{
-                        width: preset.length <= 2 ? "100%" : "50%",
-                        height: preset.length <= 2 ? `${100 / preset.length}%` : "50%",
-                        bgcolor: color,
-                      }}
-                    />
-                  ))}
-                </Box>
-              )}
-            </Box>
+              </Box>
+            </Grid>
           ))}
-        </Box>
+        </Grid>
       </Box>
     );
   };
@@ -748,55 +950,46 @@ const LoaderTools = () => {
     const handleInputChange = (e) => {
       let newValue = parseFloat(e.target.value);
       if (isNaN(newValue)) return;
-      
+
       // Clamp the value between min and max
       newValue = Math.max(min, Math.min(max, newValue));
       onChange(newValue);
     };
 
     return (
-      <Box sx={{ mb: 2 }}>
+      <Box sx={{ mb: 3 }}>
         <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 0.5 }}>
-          <Typography variant="body2">{label}</Typography>
+          <Typography variant="body2" fontWeight="500">
+            {label}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {displayValue || value}
+          </Typography>
         </Box>
-        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          <IconButton 
-            size="small" 
-            onClick={decrement}
-            sx={{ p: 0.5 }}
-          >
+        <Box sx={{ display: "flex", alignItems: "center" }}>
+          <IconButton size="small" onClick={decrement} sx={{ p: 0.5 }}>
             <Remove fontSize="small" />
           </IconButton>
-          
+
           <TextField
             size="small"
             type="number"
             value={value}
             onChange={handleInputChange}
-            inputProps={{ 
-              min, 
-              max, 
+            inputProps={{
               step: step || 0.1,
-              style: { textAlign: 'center', paddingTop: 2, paddingBottom: 2 }
+              min,
+              max,
+              style: { textAlign: "center" },
             }}
-            sx={{ 
-              mx: 1,
-              width: '60px',
-              '& input': { px: 1 }
-            }}
+            sx={{ mx: 1, width: "70px" }}
           />
-          
-          <IconButton 
-            size="small" 
-            onClick={increment}
-            sx={{ p: 0.5 }}
-          >
+
+          <IconButton size="small" onClick={increment} sx={{ p: 0.5 }}>
             <Add fontSize="small" />
           </IconButton>
-          
-          <Typography variant="caption" color="text.secondary" sx={{ ml: 1, minWidth: '60px' }}>
-            {displayValue || `${value}${label === 'Size' ? 'px' : ''}`}
-          </Typography>
+
+          <Slider value={value} onChange={(_, newValue) => onChange(newValue)} min={min} max={max} step={step || 0.1} sx={{ ml: 2, flex: 1 }} />
         </Box>
       </Box>
     );
@@ -807,7 +1000,7 @@ const LoaderTools = () => {
 
   // Get loader-specific controls
   const renderLoaderControls = () => {
-    const { customOptions } = currentLoader;
+    const customOptions = currentLoader.customOptions || ["color", "speed", "size", "thickness"];
 
     return (
       <Box>
@@ -816,7 +1009,7 @@ const LoaderTools = () => {
         {customOptions.includes("color") && renderSingleColorInput()}
         {customOptions.includes("multiColor") && renderMultiColorInput()}
 
-        {customOptions.includes("speed") && <CustomSlider label="Speed" value={speed} onChange={handleSpeedChange} min={0.1} max={2} step={0.1} />}
+        {customOptions.includes("speed") && <CustomSlider label="Speed" value={speed} onChange={handleSpeedChange} min={0.1} max={2} step={0.1} displayValue={`${speed}s`} />}
 
         {customOptions.includes("size") && <CustomSlider label="Size" value={size} onChange={handleSizeChange} min={30} max={150} step={5} displayValue={`${size}px`} />}
 
@@ -827,11 +1020,11 @@ const LoaderTools = () => {
 
   return (
     <Container maxWidth="lg">
-      <Box sx={{ mb: 2 }}>
-        <Typography variant="h5" gutterBottom>
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h4" gutterBottom fontWeight="500">
           Loader Generator
         </Typography>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body1" color="text.secondary">
           Create beautiful, customizable loading animations
         </Typography>
       </Box>
@@ -839,25 +1032,27 @@ const LoaderTools = () => {
       {/* Display all loader types first */}
       {renderAllLoaderTypes()}
 
-      <Grid container spacing={2} sx={{ mt: 1 }}>
-        {/* Main Editor */}
-        <Grid container item spacing={2}>
-          {/* Preview - 40% width */}
+      <Box sx={{ mt: 4, mb: 6 }}>
+        <Grid container spacing={3}>
+          {/* Preview - Left side */}
           <Grid item xs={12} md={5}>
             <Paper
+              elevation={0}
               sx={{
-                p: 2,
+                p: 4,
                 mb: { xs: 2, md: 0 },
                 display: "flex",
                 justifyContent: "center",
                 alignItems: "center",
                 height: "100%",
-                minHeight: 180,
+                minHeight: 300,
                 position: "relative",
                 backgroundColor: isTransparent ? "transparent" : backgroundColor,
                 backgroundImage: isTransparent ? "linear-gradient(45deg, #f0f0f0 25%, transparent 25%), linear-gradient(-45deg, #f0f0f0 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #f0f0f0 75%), linear-gradient(-45deg, transparent 75%, #f0f0f0 75%)" : "none",
                 backgroundSize: "20px 20px",
                 backgroundPosition: "0 0, 0 10px, 10px -10px, -10px 0px",
+                border: "1px solid #e0e0e0",
+                borderRadius: 2,
               }}
             >
               <Box ref={previewRef} sx={{ display: "flex", justifyContent: "center", alignItems: "center" }} dangerouslySetInnerHTML={{ __html: generateLoaderHTML() }} />
@@ -872,75 +1067,70 @@ const LoaderTools = () => {
             </Paper>
           </Grid>
 
-          {/* Controls - 60% width */}
+          {/* Controls - Right side */}
           <Grid item xs={12} md={7}>
-            <Paper sx={{ p: 2 }}>
-              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
-                <Typography variant="subtitle1">Customize {currentLoader.name}</Typography>
+            <Paper
+              elevation={0}
+              sx={{
+                p: 3,
+                border: "1px solid #e0e0e0",
+                borderRadius: 2,
+              }}
+            >
+              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
+                <Typography variant="h6">Customize {currentLoader.name}</Typography>
 
-                <ButtonGroup size="small" variant="outlined">
-                  <Button onClick={() => handleDownload("png")} disabled={loading} size="small">
+                <ButtonGroup>
+                  <Button onClick={() => handleDownload("png")} disabled={loading} variant={activeTab === "png" ? "contained" : "outlined"} sx={{ px: 2 }}>
                     PNG
                   </Button>
-                  <Button onClick={() => handleDownload("svg")} disabled={loading} size="small">
+                  <Button onClick={() => handleDownload("svg")} disabled={loading} variant={activeTab === "svg" ? "contained" : "outlined"} sx={{ px: 2 }}>
                     SVG
                   </Button>
-                  <Button onClick={() => handleDownload("gif")} disabled={loading} size="small">
+                  <Button onClick={() => handleDownload("gif")} disabled={loading} variant={activeTab === "gif" ? "contained" : "outlined"} sx={{ px: 2 }}>
                     GIF
                   </Button>
                 </ButtonGroup>
               </Box>
 
-              <Divider sx={{ mb: 2 }} />
+              <Divider sx={{ mb: 3 }} />
 
               {/* Loader-specific controls */}
               {renderLoaderControls()}
 
-              {/* Advanced options in accordion */}
-              <Accordion sx={{ mt: 1 }}>
-                <AccordionSummary expandIcon={<ExpandMore />}>
-                  <Typography variant="body2">Advanced Options</Typography>
-                </AccordionSummary>
-                <AccordionDetails>
-                  <CustomSlider label="Scale" value={scale} onChange={handleScaleChange} min={0.1} max={2} step={0.1} />
-                  <CustomSlider label="Opacity" value={opacity} onChange={handleOpacityChange} min={0.1} max={1} step={0.1} />
-                </AccordionDetails>
-              </Accordion>
-
-              <Accordion sx={{ mt: 1 }}>
-                <AccordionSummary expandIcon={<ExpandMore />}>
-                  <Typography variant="body2">Background</Typography>
-                </AccordionSummary>
-                <AccordionDetails>
-                  <Grid container spacing={2} alignItems="center">
-                    <Grid item xs={8}>
-                      <TextField
-                        label="Background Color"
-                        type="color"
-                        value={backgroundColor}
-                        onChange={handleBackgroundColorChange}
-                        fullWidth
-                        size="small"
-                        disabled={isTransparent}
-                        sx={{
-                          "& input": {
-                            height: "35px",
-                            cursor: isTransparent ? "not-allowed" : "pointer",
-                          },
-                        }}
-                      />
-                    </Grid>
-                    <Grid item xs={4}>
-                      <FormControlLabel control={<Switch checked={isTransparent} onChange={handleTransparentChange} />} label="Transparent" sx={{ "& .MuiFormControlLabel-label": { fontSize: "0.875rem" } }} />
-                    </Grid>
+              {/* Background settings */}
+              <Box sx={{ mb: 2, mt: 1 }}>
+                <Typography variant="body2" gutterBottom fontWeight="500">
+                  Background
+                </Typography>
+                <Grid container spacing={2} alignItems="center">
+                  <Grid item xs={8}>
+                    <TextField
+                      type="color"
+                      value={backgroundColor}
+                      onChange={handleBackgroundColorChange}
+                      fullWidth
+                      size="small"
+                      disabled={isTransparent}
+                      sx={{
+                        "& input": {
+                          height: "40px",
+                          cursor: isTransparent ? "not-allowed" : "pointer",
+                        },
+                      }}
+                    />
                   </Grid>
-                </AccordionDetails>
-              </Accordion>
+                  <Grid item xs={4}>
+                    <FormControlLabel control={<Switch checked={isTransparent} onChange={handleTransparentChange} />} label="Transparent" sx={{ "& .MuiFormControlLabel-label": { fontSize: "0.875rem" } }} />
+                  </Grid>
+                </Grid>
+              </Box>
             </Paper>
           </Grid>
         </Grid>
-      </Grid>
+      </Box>
 
+      {/* CSS animations */}
       <style jsx="true">{`
         @keyframes spin {
           0% {

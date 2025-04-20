@@ -3,12 +3,12 @@ import { Box, Button, Container, Grid, Paper, Typography, Slider, FormControl, I
 import { CloudUpload, Download, Refresh, AspectRatio, Delete } from "@mui/icons-material";
 
 function ImageTools() {
-    const [selectedFile, setSelectedFile] = useState(null);
+  const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [processedUrl, setProcessedUrl] = useState(null);
   const [loading, setLoading] = useState(false);
-    const [error, setError] = useState(null);
-    const [success, setSuccess] = useState(null);
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
   const fileInputRef = useRef(null);
 
   // Image manipulation states
@@ -26,11 +26,11 @@ function ImageTools() {
     compressionLevel: "medium",
   });
 
-    const handleFileSelect = (event) => {
-        const file = event.target.files[0];
-        if (file) {
+  const handleFileSelect = (event) => {
+    const file = event.target.files[0];
+    if (file) {
       if (file.type.startsWith("image/")) {
-            setSelectedFile(file);
+        setSelectedFile(file);
         const reader = new FileReader();
         reader.onload = () => {
           setPreviewUrl(reader.result);
@@ -46,7 +46,7 @@ function ImageTools() {
           img.src = reader.result;
         };
         reader.readAsDataURL(file);
-            setError(null);
+        setError(null);
         setProcessedUrl(null);
       } else {
         setError("Please select a valid image file");
@@ -82,10 +82,10 @@ function ImageTools() {
         ...prev,
         [setting]: value,
       }));
-        }
-    };
+    }
+  };
 
-    const handleResize = async () => {
+  const handleResize = async () => {
     try {
       setLoading(true);
       setError(null);
@@ -117,11 +117,11 @@ function ImageTools() {
       };
 
       img.src = previewUrl;
-        } catch (err) {
+    } catch (err) {
       setError("Failed to process image");
-            setLoading(false);
-        }
-    };
+      setLoading(false);
+    }
+  };
 
   const handleDownload = () => {
     if (processedUrl) {
@@ -187,36 +187,36 @@ function ImageTools() {
     // Reset the file input
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
-        }
-    };
+    }
+  };
 
-    return (
+  return (
     <Container maxWidth="xl">
-      <Box sx={{ py: 4 }}>
-        <Typography variant="h4" gutterBottom>
-                    Image Tools
-                </Typography>
+      <Box sx={{ py: 1 }}>
+        <Typography variant="h5" gutterBottom sx={{ mt: 0, mb: 1 }}>
+          Image Tools
+        </Typography>
 
         {(error || success) && (
-          <Alert severity={error ? "error" : "success"} sx={{ mb: 2 }} onClose={() => (error ? setError(null) : setSuccess(null))}>
+          <Alert severity={error ? "error" : "success"} sx={{ mb: 1 }} onClose={() => (error ? setError(null) : setSuccess(null))}>
             {error || success}
-                    </Alert>
-                )}
+          </Alert>
+        )}
 
-                <Grid container spacing={3}>
+        <Grid container spacing={2}>
           {/* Image Upload and Preview Section */}
-                    <Grid item xs={12} md={6}>
+          <Grid item xs={12} md={6}>
             <Paper
               sx={{
-                p: 3,
+                p: 2,
                 height: "100%",
                 display: "flex",
                 flexDirection: "column",
               }}
             >
-                                <Typography variant="h6" gutterBottom>
-                                    Upload Image
-                                </Typography>
+              <Typography variant="subtitle1" gutterBottom sx={{ mb: 1 }}>
+                Upload Image
+              </Typography>
 
               <input type="file" accept="image/*" hidden ref={fileInputRef} onChange={handleFileSelect} />
 
@@ -231,7 +231,7 @@ function ImageTools() {
                   borderColor: "grey.300",
                   borderRadius: 2,
                   position: "relative",
-                  minHeight: previewUrl ? "auto" : "300px",
+                  minHeight: previewUrl ? "auto" : "250px",
                   cursor: "pointer",
                   transition: "all 0.2s ease",
                   "&:hover": {
@@ -250,205 +250,351 @@ function ImageTools() {
                       alt="Preview"
                       style={{
                         width: "100%",
-                        height: "auto",
-                        display: "block",
+                        maxHeight: "250px",
                         objectFit: "contain",
                       }}
                     />
-                    <Box
+                    <IconButton
+                      size="small"
+                      color="primary"
                       sx={{
                         position: "absolute",
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        bgcolor: "rgba(0,0,0,0.6)",
-                        opacity: 0,
-                        transition: "opacity 0.3s ease",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        "&:hover": {
-                          opacity: 1,
-                        },
+                        top: 8,
+                        right: 8,
+                        bgcolor: "white",
+                        "&:hover": { bgcolor: "grey.200" },
                       }}
+                      onClick={handleDeleteImage}
                     >
-                      <Stack spacing={2} direction="row">
-                        <Button
-                          variant="contained"
-                          startIcon={<CloudUpload />}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            fileInputRef.current.click();
-                          }}
-                          sx={{
-                            color: "white",
-                            bgcolor: "primary.main",
-                            "&:hover": {
-                              bgcolor: "primary.dark",
-                            },
-                          }}
-                        >
-                          Change Image
-                        </Button>
-                                    <Button
-                                        variant="contained"
-                          startIcon={<Delete />}
-                          onClick={handleDeleteImage}
-                          sx={{
-                            color: "white",
-                            bgcolor: "error.main",
-                            "&:hover": {
-                              bgcolor: "error.dark",
-                            },
-                          }}
-                        >
-                          Delete
-                                    </Button>
-                      </Stack>
-                    </Box>
+                      <Delete />
+                    </IconButton>
                   </Box>
                 ) : (
-                  <Stack spacing={2} alignItems="center" sx={{ p: 3 }}>
-                    <CloudUpload sx={{ fontSize: 48, color: "grey.500" }} />
-                    <Typography variant="h6" color="textSecondary">
-                      Drag and drop an image here
-                    </Typography>
+                  <Box sx={{ textAlign: "center", p: 1 }}>
+                    <CloudUpload sx={{ fontSize: 40, color: "grey.500", mb: 1 }} />
+                    <Typography>Drag and drop an image here</Typography>
                     <Typography variant="body2" color="textSecondary">
                       or click to select a file
                     </Typography>
-                    <Typography variant="caption" color="textSecondary">
-                      Supports: JPG, PNG, WebP
-                    </Typography>
-                  </Stack>
+                  </Box>
                 )}
               </Box>
 
-              {previewUrl && (
-                                    <Box sx={{ mt: 2 }}>
-                  <Typography variant="body2" color="textSecondary" gutterBottom>
-                    File: {selectedFile?.name}
-                  </Typography>
-                  <Typography variant="body2" color="textSecondary">
-                    Size: {(selectedFile?.size / 1024 / 1024).toFixed(2)} MB
-                  </Typography>
-                                    </Box>
-                                )}
+              {selectedFile && (
+                <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+                  <Button variant="contained" color="primary" onClick={handleResize} disabled={loading} size="small">
+                    {loading ? "Processing..." : "Process Image"}
+                  </Button>
+                  <Button variant="outlined" color="secondary" onClick={handleReset} disabled={loading} startIcon={<Refresh />} size="small">
+                    Reset Settings
+                  </Button>
+                  {processedUrl && (
+                    <Button variant="outlined" color="primary" onClick={handleDownload} startIcon={<Download />} size="small">
+                      Download
+                    </Button>
+                  )}
+                </Stack>
+              )}
             </Paper>
-                    </Grid>
+          </Grid>
 
-          {/* Image Operations Section */}
-                    <Grid item xs={12} md={6}>
-            <Paper sx={{ p: 3 }}>
-                                <Typography variant="h6" gutterBottom>
-                                    Image Operations
-                                </Typography>
+          {/* Image Settings and Controls Section */}
+          <Grid item xs={12} md={6}>
+            <Paper sx={{ p: 2, height: "100%" }}>
+              <Typography variant="subtitle1" gutterBottom sx={{ mb: 1 }}>
+                Image Operations
+              </Typography>
+
+              <Box sx={{ mb: 2 }}>
+                <FormControlLabel
+                  control={<Switch checked={imageSettings.maintainAspectRatio} onChange={(e) => handleSettingChange("maintainAspectRatio", e.target.checked)} color="primary" size="small" />}
+                  label={
+                    <Box sx={{ display: "flex", alignItems: "center" }}>
+                      <Typography variant="body2" sx={{ mr: 0.5 }}>
+                        Maintain Aspect Ratio
+                      </Typography>
+                      <AspectRatio fontSize="small" />
+                    </Box>
+                  }
+                />
+
+                <Grid container spacing={2} sx={{ mt: 1 }}>
+                  <Grid item xs={6}>
+                    <TextField label="Width" type="number" fullWidth value={imageSettings.width} onChange={(e) => handleSettingChange("width", parseInt(e.target.value, 10))} disabled={!selectedFile} inputProps={{ min: 1 }} variant="outlined" size="small" />
+                  </Grid>
+                  <Grid item xs={6}>
+                    <TextField label="Height" type="number" fullWidth value={imageSettings.height} onChange={(e) => handleSettingChange("height", parseInt(e.target.value, 10))} disabled={!selectedFile} inputProps={{ min: 1 }} variant="outlined" size="small" />
+                  </Grid>
+                </Grid>
+              </Box>
+
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="body2" gutterBottom sx={{ display: "flex", justifyContent: "space-between" }}>
+                  <span>Quality</span>
+                  <span sx={{ fontWeight: "medium" }}>{imageSettings.quality}%</span>
+                </Typography>
+                <Slider
+                  value={imageSettings.quality}
+                  onChange={(_, value) => handleSettingChange("quality", value)}
+                  min={1}
+                  max={100}
+                  disabled={!selectedFile}
+                  marks={[
+                    { value: 1, label: "1%" },
+                    { value: 50, label: "50%" },
+                    { value: 100, label: "100%" },
+                  ]}
+                  size="small"
+                  sx={{
+                    color: "primary.main",
+                    "& .MuiSlider-thumb": {
+                      height: 20,
+                      width: 20,
+                      bgcolor: "background.paper",
+                      border: "2px solid currentColor",
+                      "&:hover, &.Mui-focusVisible": {
+                        boxShadow: "0px 0px 0px 8px rgba(25, 118, 210, 0.16)",
+                      },
+                    },
+                    "& .MuiSlider-rail": {
+                      opacity: 0.5,
+                    },
+                  }}
+                />
+              </Box>
+
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="body2" gutterBottom sx={{ display: "flex", justifyContent: "space-between" }}>
+                  <span>Rotation</span>
+                  <span sx={{ fontWeight: "medium" }}>{imageSettings.rotation}°</span>
+                </Typography>
+                <Slider
+                  value={imageSettings.rotation}
+                  onChange={(_, value) => handleSettingChange("rotation", value)}
+                  min={0}
+                  max={360}
+                  disabled={!selectedFile}
+                  marks={[
+                    { value: 0, label: "0°" },
+                    { value: 90, label: "90°" },
+                    { value: 180, label: "180°" },
+                    { value: 270, label: "270°" },
+                    { value: 360, label: "360°" },
+                  ]}
+                  size="small"
+                  sx={{
+                    color: "primary.main",
+                    "& .MuiSlider-thumb": {
+                      height: 20,
+                      width: 20,
+                      bgcolor: "background.paper",
+                      border: "2px solid currentColor",
+                      "&:hover, &.Mui-focusVisible": {
+                        boxShadow: "0px 0px 0px 8px rgba(25, 118, 210, 0.16)",
+                      },
+                    },
+                    "& .MuiSlider-rail": {
+                      opacity: 0.5,
+                    },
+                  }}
+                />
+              </Box>
+
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="body2" gutterBottom sx={{ display: "flex", justifyContent: "space-between" }}>
+                  <span>Brightness</span>
+                  <span sx={{ fontWeight: "medium" }}>{imageSettings.brightness}%</span>
+                </Typography>
+                <Slider
+                  value={imageSettings.brightness}
+                  onChange={(_, value) => handleSettingChange("brightness", value)}
+                  min={0}
+                  max={200}
+                  disabled={!selectedFile}
+                  marks={[
+                    { value: 0, label: "0%" },
+                    { value: 100, label: "100%" },
+                    { value: 200, label: "200%" },
+                  ]}
+                  size="small"
+                  sx={{
+                    color: "primary.main",
+                    "& .MuiSlider-thumb": {
+                      height: 20,
+                      width: 20,
+                      bgcolor: "background.paper",
+                      border: "2px solid currentColor",
+                      "&:hover, &.Mui-focusVisible": {
+                        boxShadow: "0px 0px 0px 8px rgba(25, 118, 210, 0.16)",
+                      },
+                    },
+                    "& .MuiSlider-rail": {
+                      opacity: 0.5,
+                    },
+                  }}
+                />
+              </Box>
+
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="body2" gutterBottom sx={{ display: "flex", justifyContent: "space-between" }}>
+                  <span>Contrast</span>
+                  <span sx={{ fontWeight: "medium" }}>{imageSettings.contrast}%</span>
+                </Typography>
+                <Slider
+                  value={imageSettings.contrast}
+                  onChange={(_, value) => handleSettingChange("contrast", value)}
+                  min={0}
+                  max={200}
+                  disabled={!selectedFile}
+                  marks={[
+                    { value: 0, label: "0%" },
+                    { value: 100, label: "100%" },
+                    { value: 200, label: "200%" },
+                  ]}
+                  size="small"
+                  sx={{
+                    color: "primary.main",
+                    "& .MuiSlider-thumb": {
+                      height: 20,
+                      width: 20,
+                      bgcolor: "background.paper",
+                      border: "2px solid currentColor",
+                      "&:hover, &.Mui-focusVisible": {
+                        boxShadow: "0px 0px 0px 8px rgba(25, 118, 210, 0.16)",
+                      },
+                    },
+                    "& .MuiSlider-rail": {
+                      opacity: 0.5,
+                    },
+                  }}
+                />
+              </Box>
+
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="body2" gutterBottom sx={{ display: "flex", justifyContent: "space-between" }}>
+                  <span>Saturation</span>
+                  <span sx={{ fontWeight: "medium" }}>{imageSettings.saturation}%</span>
+                </Typography>
+                <Slider
+                  value={imageSettings.saturation}
+                  onChange={(_, value) => handleSettingChange("saturation", value)}
+                  min={0}
+                  max={200}
+                  disabled={!selectedFile}
+                  marks={[
+                    { value: 0, label: "0%" },
+                    { value: 100, label: "100%" },
+                    { value: 200, label: "200%" },
+                  ]}
+                  size="small"
+                  sx={{
+                    color: "primary.main",
+                    "& .MuiSlider-thumb": {
+                      height: 20,
+                      width: 20,
+                      bgcolor: "background.paper",
+                      border: "2px solid currentColor",
+                      "&:hover, &.Mui-focusVisible": {
+                        boxShadow: "0px 0px 0px 8px rgba(25, 118, 210, 0.16)",
+                      },
+                    },
+                    "& .MuiSlider-rail": {
+                      opacity: 0.5,
+                    },
+                  }}
+                />
+              </Box>
+
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="body2" gutterBottom sx={{ display: "flex", justifyContent: "space-between" }}>
+                  <span>Blur</span>
+                  <span sx={{ fontWeight: "medium" }}>{imageSettings.blur}px</span>
+                </Typography>
+                <Slider
+                  value={imageSettings.blur}
+                  onChange={(_, value) => handleSettingChange("blur", value)}
+                  min={0}
+                  max={20}
+                  disabled={!selectedFile}
+                  marks={[
+                    { value: 0, label: "0px" },
+                    { value: 10, label: "10px" },
+                    { value: 20, label: "20px" },
+                  ]}
+                  size="small"
+                  sx={{
+                    color: "primary.main",
+                    "& .MuiSlider-thumb": {
+                      height: 20,
+                      width: 20,
+                      bgcolor: "background.paper",
+                      border: "2px solid currentColor",
+                      "&:hover, &.Mui-focusVisible": {
+                        boxShadow: "0px 0px 0px 8px rgba(25, 118, 210, 0.16)",
+                      },
+                    },
+                    "& .MuiSlider-rail": {
+                      opacity: 0.5,
+                    },
+                  }}
+                />
+              </Box>
 
               <Grid container spacing={2}>
-                {/* Dimensions */}
-                <Grid item xs={12}>
-                  <FormControlLabel control={<Switch checked={imageSettings.maintainAspectRatio} onChange={(e) => handleSettingChange("maintainAspectRatio", e.target.checked)} />} label="Maintain Aspect Ratio" />
-                </Grid>
-
-                <Grid item xs={6}>
-                  <TextField fullWidth type="number" label="Width" value={imageSettings.width} onChange={(e) => handleSettingChange("width", parseInt(e.target.value))} InputProps={{ inputProps: { min: 1 } }} />
-                </Grid>
-
-                <Grid item xs={6}>
-                  <TextField fullWidth type="number" label="Height" value={imageSettings.height} onChange={(e) => handleSettingChange("height", parseInt(e.target.value))} InputProps={{ inputProps: { min: 1 } }} />
-                </Grid>
-
-                {/* Image Quality */}
-                <Grid item xs={12}>
-                  <Typography gutterBottom>Quality</Typography>
-                  <Slider value={imageSettings.quality} onChange={(e, value) => handleSettingChange("quality", value)} min={1} max={100} valueLabelDisplay="auto" />
-                </Grid>
-
-                {/* Rotation */}
-                <Grid item xs={12}>
-                  <Typography gutterBottom>Rotation</Typography>
-                  <Slider value={imageSettings.rotation} onChange={(e, value) => handleSettingChange("rotation", value)} min={0} max={360} valueLabelDisplay="auto" />
-                </Grid>
-
-                {/* Image Adjustments */}
-                <Grid item xs={12}>
-                  <Typography gutterBottom>Brightness</Typography>
-                  <Slider value={imageSettings.brightness} onChange={(e, value) => handleSettingChange("brightness", value)} min={0} max={200} valueLabelDisplay="auto" />
-                </Grid>
-
-                <Grid item xs={12}>
-                  <Typography gutterBottom>Contrast</Typography>
-                  <Slider value={imageSettings.contrast} onChange={(e, value) => handleSettingChange("contrast", value)} min={0} max={200} valueLabelDisplay="auto" />
-                </Grid>
-
-                <Grid item xs={12}>
-                  <Typography gutterBottom>Saturation</Typography>
-                  <Slider value={imageSettings.saturation} onChange={(e, value) => handleSettingChange("saturation", value)} min={0} max={200} valueLabelDisplay="auto" />
-                </Grid>
-
-                <Grid item xs={12}>
-                  <Typography gutterBottom>Blur</Typography>
-                  <Slider value={imageSettings.blur} onChange={(e, value) => handleSettingChange("blur", value)} min={0} max={10} step={0.1} valueLabelDisplay="auto" />
-                </Grid>
-
-                {/* Format Selection */}
-                <Grid item xs={12}>
-                  <FormControl fullWidth>
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth margin="dense" size="small">
                     <InputLabel>Format</InputLabel>
-                    <Select value={imageSettings.format} label="Format" onChange={(e) => handleSettingChange("format", e.target.value)}>
+                    <Select value={imageSettings.format} onChange={(e) => handleSettingChange("format", e.target.value)} label="Format" disabled={!selectedFile}>
                       <MenuItem value="jpeg">JPEG</MenuItem>
                       <MenuItem value="png">PNG</MenuItem>
                       <MenuItem value="webp">WebP</MenuItem>
                     </Select>
                   </FormControl>
                 </Grid>
-
-                {/* Action Buttons */}
-                <Grid item xs={12}>
-                  <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
-                    <Button variant="contained" onClick={handleResize} disabled={!selectedFile || loading} startIcon={<AspectRatio />} fullWidth>
-                      Process Image
-                                    </Button>
-
-                    <Button variant="outlined" onClick={handleReset} disabled={!selectedFile || loading} startIcon={<Refresh />}>
-                      Reset
-                                    </Button>
-                  </Stack>
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth margin="dense" size="small">
+                    <InputLabel>Compression</InputLabel>
+                    <Select value={imageSettings.compressionLevel} onChange={(e) => handleSettingChange("compressionLevel", e.target.value)} label="Compression" disabled={!selectedFile}>
+                      <MenuItem value="low">Low</MenuItem>
+                      <MenuItem value="medium">Medium</MenuItem>
+                      <MenuItem value="high">High</MenuItem>
+                    </Select>
+                  </FormControl>
                 </Grid>
               </Grid>
             </Paper>
           </Grid>
 
-          {/* Processed Image Section */}
+          {/* Result Preview Section */}
           {processedUrl && (
             <Grid item xs={12}>
-              <Paper sx={{ p: 3 }}>
-                <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
-                  <Typography variant="h6">Processed Image</Typography>
-                  <Box sx={{ flexGrow: 1 }} />
-                  <Tooltip title="Download Image">
-                    <IconButton onClick={handleDownload} color="primary">
-                      <Download />
-                    </IconButton>
-                  </Tooltip>
-                </Box>
-                <Box sx={{ textAlign: "center" }}>
+              <Paper sx={{ p: 2, textAlign: "center" }}>
+                <Typography variant="subtitle1" gutterBottom sx={{ mb: 1 }}>
+                  Processed Image
+                </Typography>
+                <Box sx={{ position: "relative", display: "inline-block", maxWidth: "100%" }}>
                   <img
                     src={processedUrl}
                     alt="Processed"
                     style={{
                       maxWidth: "100%",
-                      maxHeight: "600px",
+                      maxHeight: "400px",
+                      objectFit: "contain",
                     }}
                   />
-                                </Box>
+                </Box>
+                <Box sx={{ mt: 1, display: "flex", justifyContent: "center" }}>
+                  <Button variant="contained" color="primary" onClick={handleDownload} startIcon={<Download />} sx={{ mt: 1 }}>
+                    Download
+                  </Button>
+                </Box>
               </Paper>
-                    </Grid>
+            </Grid>
           )}
-                </Grid>
-            </Box>
-        </Container>
-    );
+        </Grid>
+      </Box>
+    </Container>
+  );
 }
 
-export default ImageTools; 
+export default ImageTools;

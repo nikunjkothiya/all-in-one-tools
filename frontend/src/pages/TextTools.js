@@ -7,13 +7,13 @@ import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 
 function TabPanel(props) {
-    const { children, value, index, ...other } = props;
+  const { children, value, index, ...other } = props;
 
-    return (
+  return (
     <div role="tabpanel" hidden={value !== index} id={`text-tool-tabpanel-${index}`} aria-labelledby={`text-tool-tab-${index}`} {...other}>
-            {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
-        </div>
-    );
+      {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
+    </div>
+  );
 }
 
 const commonPatterns = [
@@ -256,7 +256,7 @@ const regexCategories = [
 ];
 
 function TextTools() {
-    const [tabValue, setTabValue] = useState(0);
+  const [tabValue, setTabValue] = useState(0);
   const [inputText, setInputText] = useState("");
   const [outputText, setOutputText] = useState("");
   const [caseType, setCaseType] = useState("uppercase");
@@ -356,31 +356,31 @@ function example() {
 | Cell 3   | Cell 4   |
 `);
 
-    const handleTabChange = (event, newValue) => {
-        setTabValue(newValue);
+  const handleTabChange = (event, newValue) => {
+    setTabValue(newValue);
     setError("");
-    };
+  };
 
-    const handleCaseConversion = () => {
-        switch (caseType) {
+  const handleCaseConversion = () => {
+    switch (caseType) {
       case "uppercase":
-                setOutputText(inputText.toUpperCase());
-                break;
+        setOutputText(inputText.toUpperCase());
+        break;
       case "lowercase":
-                setOutputText(inputText.toLowerCase());
-                break;
+        setOutputText(inputText.toLowerCase());
+        break;
       case "titlecase":
-                setOutputText(
-                    inputText
+        setOutputText(
+          inputText
             .split(" ")
-                        .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+            .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
             .join(" ")
-                );
-                break;
-            default:
-                setOutputText(inputText);
-        }
-    };
+        );
+        break;
+      default:
+        setOutputText(inputText);
+    }
+  };
 
   const handleTextDiff = async () => {
     try {
@@ -493,696 +493,760 @@ function example() {
     const newType = e.target.value;
     setLoremType(newType);
     setCustomCount(newType === "paragraphs" ? 1 : 100);
-    };
+  };
 
-    return (
-        <Container maxWidth="lg">
-            <Typography variant="h4" component="h1" gutterBottom>
-                Text Tools
-            </Typography>
+  return (
+    <Container maxWidth="xl">
+      <Box sx={{ py: 1 }}>
+        <Typography variant="h5" component="h1" gutterBottom sx={{ mt: 0, mb: 1 }}>
+          Text Tools
+        </Typography>
 
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
-        </Alert>
-      )}
+        {error && (
+          <Alert severity="error" sx={{ mb: 1 }}>
+            {error}
+          </Alert>
+        )}
 
-      <Paper sx={{ width: "100%", mb: 2 }}>
-        <Tabs value={tabValue} onChange={handleTabChange} aria-label="text tools tabs">
-                    <Tab label="Case Converter" />
-                    <Tab label="Text Diff" />
-                    <Tab label="Regex Tester" />
-                    <Tab label="Lorem Ipsum" />
-                    <Tab label="Markdown Preview" />
-                </Tabs>
+        <Paper sx={{ width: "100%", mb: 1 }}>
+          <Tabs value={tabValue} onChange={handleTabChange} aria-label="text tools tabs" variant="scrollable" scrollButtons="auto">
+            <Tab label="Case Converter" />
+            <Tab label="Text Diff" />
+            <Tab label="Regex Tester" />
+            <Tab label="Lorem Ipsum" />
+            <Tab label="Markdown Preview" />
+          </Tabs>
 
-                <TabPanel value={tabValue} index={0}>
-                    <Grid container spacing={3}>
-                        <Grid item xs={12} md={6}>
-              <TextField fullWidth multiline rows={6} label="Input Text" value={inputText} onChange={(e) => setInputText(e.target.value)} variant="outlined" />
-                        </Grid>
-                        <Grid item xs={12} md={6}>
-              <Box sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
-                                <FormControl sx={{ mb: 2 }}>
-                                    <InputLabel>Case Type</InputLabel>
-                  <Select value={caseType} label="Case Type" onChange={(e) => setCaseType(e.target.value)}>
-                                        <MenuItem value="uppercase">UPPERCASE</MenuItem>
-                                        <MenuItem value="lowercase">lowercase</MenuItem>
-                                        <MenuItem value="titlecase">Title Case</MenuItem>
-                                    </Select>
-                                </FormControl>
-                <Button variant="contained" onClick={handleCaseConversion} sx={{ mb: 2 }}>
-                                    Convert
-                                </Button>
-                                <TextField
-                                    fullWidth
-                                    multiline
-                                    rows={6}
-                                    label="Output Text"
-                                    value={outputText}
-                                    InputProps={{
-                                        readOnly: true,
-                                    }}
-                                    variant="outlined"
-                                />
-                            </Box>
-                        </Grid>
-                    </Grid>
-                </TabPanel>
-
-                <TabPanel value={tabValue} index={1}>
-          <Grid container spacing={3}>
-            <Grid item xs={12}>
-              <Box sx={{ mb: 3, display: "flex", alignItems: "center", gap: 2 }}>
-                <FormControl size="small" sx={{ minWidth: 120 }}>
-                  <InputLabel>Diff Mode</InputLabel>
-                  <Select value={diffMode} label="Diff Mode" onChange={(e) => setDiffMode(e.target.value)}>
-                    <MenuItem value="line">Line by Line</MenuItem>
-                    <MenuItem value="word">Word by Word</MenuItem>
-                    <MenuItem value="char">Character by Character</MenuItem>
-                  </Select>
-                </FormControl>
-                <Button variant="outlined" onClick={() => setShowLineNumbers(!showLineNumbers)} startIcon={<Info />}>
-                  {showLineNumbers ? "Hide Line Numbers" : "Show Line Numbers"}
-                </Button>
-                <Box sx={{ flexGrow: 1 }} />
-                <Tooltip title="Swap Texts">
-                  <IconButton onClick={handleSwapTexts} color="primary">
-                    <CompareArrows />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip title="Clear All">
-                  <IconButton onClick={handleClearTexts} color="error">
-                    <Clear />
-                  </IconButton>
-                </Tooltip>
-              </Box>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <Box sx={{ position: "relative" }}>
-                <TextField fullWidth multiline rows={10} label="First Text" value={text1} onChange={(e) => setText1(e.target.value)} variant="outlined" placeholder="Enter or paste your first text here..." />
-                <Tooltip title="Copy Text">
-                  <IconButton sx={{ position: "absolute", top: 8, right: 8 }} onClick={() => handleCopyText(text1)}>
-                    <ContentCopy />
-                  </IconButton>
-                </Tooltip>
-              </Box>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <Box sx={{ position: "relative" }}>
-                <TextField fullWidth multiline rows={10} label="Second Text" value={text2} onChange={(e) => setText2(e.target.value)} variant="outlined" placeholder="Enter or paste your second text here..." />
-                <Tooltip title="Copy Text">
-                  <IconButton sx={{ position: "absolute", top: 8, right: 8 }} onClick={() => handleCopyText(text2)}>
-                    <ContentCopy />
-                  </IconButton>
-                </Tooltip>
-              </Box>
-            </Grid>
-            <Grid item xs={12}>
-              <Box sx={{ display: "flex", gap: 2, alignItems: "center", mb: 2 }}>
-                <Button variant="contained" onClick={handleTextDiff} disabled={loading || !text1 || !text2}>
-                  Compare Texts
-                </Button>
-                {diffResult.length > 0 && (
-                  <Box sx={{ display: "flex", gap: 1 }}>
-                    <Chip label={`${diffStats.additions} Additions`} color="success" variant="outlined" />
-                    <Chip label={`${diffStats.deletions} Deletions`} color="error" variant="outlined" />
-                    <Chip label={`${diffStats.changes} Changes`} color="warning" variant="outlined" />
-                  </Box>
-                )}
-              </Box>
-            </Grid>
-            <Grid item xs={12}>
-              <Paper
-                variant="outlined"
-                sx={{
-                  p: 2,
-                  maxHeight: "500px",
-                  overflow: "auto",
-                  bgcolor: "#fafafa",
-                  ...(diffResult.length === 0 && {
-                    display: "flex",
-                    justifyContent: "center",
-                    alignItems: "center",
-                    minHeight: "200px",
-                  }),
-                }}
-              >
-                {diffResult.length === 0 ? (
-                  <Typography color="textSecondary">Enter text in both fields and click "Compare Texts" to see the differences</Typography>
-                ) : (
-                  diffResult.map((diff, index) => (
-                    <Box
-                      key={index}
-                      sx={{
-                        p: 1,
-                        my: 0.5,
-                        borderRadius: 1,
-                        fontFamily: "monospace",
-                        fontSize: "14px",
-                        bgcolor: diff.type === "add" ? "success.light" : diff.type === "remove" ? "error.light" : "warning.light",
-                        display: "flex",
-                        gap: 2,
-                        alignItems: "flex-start",
-                      }}
-                    >
-                      {showLineNumbers && (
-                        <Typography
-                          sx={{
-                            color: "text.secondary",
-                            minWidth: "3em",
-                            textAlign: "right",
-                            mr: 2,
-                            userSelect: "none",
-                          }}
-                        >
-                          {diff.lineNumber || index + 1}
-                        </Typography>
-                      )}
-                      <Box sx={{ flexGrow: 1 }}>
-                        {diff.type === "change" ? (
-                          <>
-                            <Box sx={{ color: "error.dark", mb: 0.5 }}>- {diff.oldLine}</Box>
-                            <Box sx={{ color: "success.dark" }}>+ {diff.newLine}</Box>
-                          </>
-                        ) : (
-                          <Box
-                            sx={{
-                              color: diff.type === "add" ? "success.dark" : "error.dark",
-                            }}
-                          >
-                            {diff.type === "add" ? "+ " : "- "}
-                            {diff.line}
-                          </Box>
-                        )}
-                      </Box>
-                      <Tooltip title="Copy Text">
-                        <IconButton size="small" onClick={() => handleCopyText(diff.type === "change" ? `${diff.oldLine}\n${diff.newLine}` : diff.line)}>
-                          <ContentCopy fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    </Box>
-                  ))
-                )}
-              </Paper>
-            </Grid>
-          </Grid>
-                </TabPanel>
-
-                <TabPanel value={tabValue} index={2}>
-          <Grid container spacing={3}>
-            <Grid item xs={12}>
-              <Box sx={{ mb: 3 }}>
-                <Typography variant="h6" gutterBottom>
-                  Regex Pattern Builder
-                </Typography>
-                <Paper variant="outlined" sx={{ p: 2 }}>
-                  <Grid container spacing={2}>
-                    <Grid item xs={12} md={8}>
-                      <TextField
-                        fullWidth
-                        label="Regular Expression Pattern"
-                        value={regexPattern}
-                        onChange={(e) => setRegexPattern(e.target.value)}
-                        error={!isValidRegex}
-                        helperText={regexError}
-                        InputProps={{
-                          startAdornment: <Search sx={{ color: "action.active", mr: 1 }} />,
-                          endAdornment: (
-                            <Box sx={{ display: "flex", gap: 1 }}>
-                              {regexPattern && (
-                                <IconButton size="small" onClick={() => setRegexPattern("")}>
-                                  <Clear />
-                                </IconButton>
-                              )}
-                              <IconButton size="small" onClick={handleSavePattern}>
-                                <Bookmark />
-                              </IconButton>
-                            </Box>
-                          ),
-                        }}
-                      />
-                    </Grid>
-                    <Grid item xs={12} md={4}>
-                      <FormControl fullWidth>
-                        <InputLabel>Flags</InputLabel>
-                        <Select
-                          multiple
-                          value={regexFlags.split("")}
-                          onChange={(e) => setRegexFlags(e.target.value.join(""))}
-                          label="Flags"
-                          renderValue={(selected) => (
-                            <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
-                              {selected.map((flag) => (
-                                <Chip key={flag} label={flag} size="small" color={flag === "g" ? "primary" : flag === "i" ? "secondary" : flag === "m" ? "warning" : "info"} />
-                              ))}
-                            </Box>
-                          )}
-                        >
-                          <MenuItem value="g">
-                            <Tooltip title="Match all occurrences">
-                              <Box sx={{ display: "flex", alignItems: "center" }}>
-                                <Typography>Global (g)</Typography>
-                                <InfoOutlined sx={{ ml: 1, fontSize: "small" }} />
-                              </Box>
-                            </Tooltip>
-                          </MenuItem>
-                          <MenuItem value="i">
-                            <Tooltip title="Case-insensitive matching">
-                              <Box sx={{ display: "flex", alignItems: "center" }}>
-                                <Typography>Case Insensitive (i)</Typography>
-                                <InfoOutlined sx={{ ml: 1, fontSize: "small" }} />
-                              </Box>
-                            </Tooltip>
-                          </MenuItem>
-                          <MenuItem value="m">
-                            <Tooltip title="Multiline mode - ^ and $ match start/end of each line">
-                              <Box sx={{ display: "flex", alignItems: "center" }}>
-                                <Typography>Multiline (m)</Typography>
-                                <InfoOutlined sx={{ ml: 1, fontSize: "small" }} />
-                              </Box>
-                            </Tooltip>
-                          </MenuItem>
-                          <MenuItem value="s">
-                            <Tooltip title="Dot matches newline characters">
-                              <Box sx={{ display: "flex", alignItems: "center" }}>
-                                <Typography>Single Line (s)</Typography>
-                                <InfoOutlined sx={{ ml: 1, fontSize: "small" }} />
-                              </Box>
-                            </Tooltip>
-                          </MenuItem>
-                        </Select>
-                      </FormControl>
-                    </Grid>
-                  </Grid>
-                </Paper>
-              </Box>
-            </Grid>
-
-            <Grid item xs={12} md={4}>
-              <Paper variant="outlined" sx={{ height: "100%" }}>
-                <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
-                  <Tabs value={selectedPatternTab} onChange={(e, newValue) => setSelectedPatternTab(newValue)} variant="scrollable" scrollButtons="auto">
-                    {regexCategories.map((category, index) => (
-                      <Tab key={index} label={category.name} />
-                    ))}
-                    {savedPatterns.length > 0 && <Tab label="Saved" />}
-                  </Tabs>
+          <TabPanel value={tabValue} index={0}>
+            <Grid container spacing={3}>
+              <Grid item xs={12} md={6}>
+                <TextField fullWidth multiline rows={6} label="Input Text" value={inputText} onChange={(e) => setInputText(e.target.value)} variant="outlined" />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <Box sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
+                  <FormControl sx={{ mb: 2 }}>
+                    <InputLabel>Case Type</InputLabel>
+                    <Select value={caseType} label="Case Type" onChange={(e) => setCaseType(e.target.value)}>
+                      <MenuItem value="uppercase">UPPERCASE</MenuItem>
+                      <MenuItem value="lowercase">lowercase</MenuItem>
+                      <MenuItem value="titlecase">Title Case</MenuItem>
+                    </Select>
+                  </FormControl>
+                  <Button variant="contained" onClick={handleCaseConversion} sx={{ mb: 2 }}>
+                    Convert
+                  </Button>
+                  <TextField
+                    fullWidth
+                    multiline
+                    rows={6}
+                    label="Output Text"
+                    value={outputText}
+                    InputProps={{
+                      readOnly: true,
+                    }}
+                    variant="outlined"
+                  />
                 </Box>
-                {regexCategories.map((category, index) => (
-                  <TabPanel key={index} value={selectedPatternTab} index={index}>
-                    <List>
-                      {category.patterns.map((pattern, patternIndex) => (
-                        <ListItem key={patternIndex} button onClick={() => handlePatternSelect(pattern)}>
-                          <ListItemText
-                            primary={pattern.name}
-                            secondary={
-                              <Box>
-                                <Typography variant="body2" color="text.secondary">
-                                  {pattern.description}
-                                </Typography>
-                                <Typography variant="caption" sx={{ fontFamily: "monospace" }}>
-                                  Example: {pattern.example}
-                                </Typography>
-                              </Box>
-                            }
-                          />
-                          <ListItemSecondaryAction>
-                            <IconButton
-                              edge="end"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleCopyText(pattern.pattern);
-                              }}
-                            >
-                              <ContentCopy />
-                            </IconButton>
-                          </ListItemSecondaryAction>
-                        </ListItem>
-                      ))}
-                    </List>
-                  </TabPanel>
-                ))}
-                {savedPatterns.length > 0 && (
-                  <TabPanel value={selectedPatternTab} index={regexCategories.length}>
-                    <List>
-                      {savedPatterns.map((pattern, index) => (
-                        <ListItem key={index} button onClick={() => handlePatternSelect(pattern)}>
-                          <ListItemText primary={pattern.name} secondary={pattern.description} />
-                          <ListItemSecondaryAction>
-                            <IconButton
-                              edge="end"
-                              onClick={() => {
-                                const newPatterns = [...savedPatterns];
-                                newPatterns.splice(index, 1);
-                                setSavedPatterns(newPatterns);
-                              }}
-                            >
-                              <Clear />
-                            </IconButton>
-                          </ListItemSecondaryAction>
-                        </ListItem>
-                      ))}
-                    </List>
-                  </TabPanel>
-                )}
-              </Paper>
+              </Grid>
             </Grid>
+          </TabPanel>
 
-            <Grid item xs={12} md={8}>
-              <TextField fullWidth multiline rows={6} label="Test Text" value={inputText} onChange={(e) => setInputText(e.target.value)} variant="outlined" placeholder="Enter text to test against the regex pattern..." />
-              <Button variant="contained" onClick={handleRegexTest} disabled={loading || !regexPattern} sx={{ mt: 2 }}>
-                Test Pattern
-              </Button>
-
-              {regexPattern && inputText && (
-                <Box sx={{ mt: 3 }}>
-                  <Typography variant="h6" gutterBottom>
-                    Results
-                  </Typography>
-                  <Grid container spacing={2}>
-                    <Grid item xs={12}>
-                      <Accordion defaultExpanded>
-                        <AccordionSummary expandIcon={<ExpandMore />}>
-                          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                            <Typography>Test Results</Typography>
-                            {regexError ? <Chip size="small" icon={<Warning />} label="Invalid Pattern" color="error" /> : regexMatches.length > 0 ? <Chip size="small" icon={<CheckCircle />} label={`${regexMatches.length} Match${regexMatches.length > 1 ? "es" : ""}`} color="success" /> : <Chip size="small" label="No Matches" color="default" />}
-                          </Box>
-                        </AccordionSummary>
-                        <AccordionDetails>
-                          {regexError ? (
-                            <Alert severity="error" sx={{ mb: 2 }}>
-                              {regexError}
-                            </Alert>
-                          ) : (
-                            <>
-                              <Paper
-                                variant="outlined"
-                                sx={{
-                                  p: 2,
-                                  mb: 2,
-                                  bgcolor: "#fafafa",
-                                  border: "1px solid",
-                                  borderColor: regexMatches.length > 0 ? "success.light" : "grey.300",
-                                }}
-                              >
-                                <Box dangerouslySetInnerHTML={{ __html: highlightedText || inputText }} />
-                              </Paper>
-
-                              {regexMatches.length > 0 ? (
-                                <List>
-                                  {regexMatches.map((match, index) => (
-                                    <ListItem key={index}>
-                                      <ListItemText
-                                        primary={<Typography sx={{ fontFamily: "monospace" }}>{match}</Typography>}
-                                        secondary={
-                                          captureGroups[index]?.length > 1 && (
-                                            <Box sx={{ mt: 1 }}>
-                                              {captureGroups[index].slice(1).map((group, groupIndex) => (
-                                                <Chip key={groupIndex} label={`Group ${groupIndex + 1}: ${group}`} size="small" sx={{ mr: 1, mb: 1 }} />
-                                              ))}
-                                            </Box>
-                                          )
-                                        }
-                                      />
-                                      <ListItemSecondaryAction>
-                                        <IconButton edge="end" onClick={() => handleCopyText(match)}>
-                                          <ContentCopy />
-                                        </IconButton>
-                                      </ListItemSecondaryAction>
-                                    </ListItem>
-                                  ))}
-                                </List>
-                              ) : (
-                                <Box sx={{ textAlign: "center", py: 2 }}>
-                                  <Typography color="textSecondary" gutterBottom>
-                                    No matches found in the test text.
-                                  </Typography>
-                                  <Typography variant="body2" color="textSecondary">
-                                    Try adjusting your pattern or checking the test text.
-                                  </Typography>
-                                </Box>
-                              )}
-                            </>
-                          )}
-                        </AccordionDetails>
-                      </Accordion>
-                    </Grid>
-
-                    <Grid item xs={12}>
-                      <Accordion defaultExpanded>
-                        <AccordionSummary expandIcon={<ExpandMore />}>
-                          <Typography>Pattern Explanation</Typography>
-                        </AccordionSummary>
-                        <AccordionDetails>
-                          <PatternExplanation pattern={regexCategories.flatMap((cat) => cat.patterns).find((p) => p.pattern === regexPattern)} parts={patternParts} />
-                          {regexFlags && (
-                            <Box sx={{ mt: 2 }}>
-                              <Typography variant="subtitle2" gutterBottom>
-                                Active Flags:
-                              </Typography>
-                              <Box sx={{ display: "flex", gap: 1 }}>
-                                {regexFlags.split("").map((flag) => (
-                                  <Chip key={flag} label={flag === "g" ? "Global (g)" : flag === "i" ? "Case Insensitive (i)" : flag === "m" ? "Multiline (m)" : flag === "s" ? "Single Line (s)" : flag} size="small" color={flag === "g" ? "primary" : flag === "i" ? "secondary" : flag === "m" ? "warning" : "info"} />
-                                ))}
-                              </Box>
-                            </Box>
-                          )}
-                        </AccordionDetails>
-                      </Accordion>
-                    </Grid>
-
-                    <Grid item xs={12}>
-                      <Accordion>
-                        <AccordionSummary expandIcon={<ExpandMore />}>
-                          <Typography>Quick Reference</Typography>
-                        </AccordionSummary>
-                        <AccordionDetails>
-                          <Grid container spacing={2}>
-                            <Grid item xs={12} sm={6} md={4}>
-                              <Typography variant="subtitle2" gutterBottom>
-                                Character Classes
-                              </Typography>
-                              <List dense>
-                                <ListItem>
-                                  <ListItemText primary={<Typography sx={{ fontFamily: "monospace" }}>\d</Typography>} secondary="Any digit (0-9)" />
-                                </ListItem>
-                                <ListItem>
-                                  <ListItemText primary={<Typography sx={{ fontFamily: "monospace" }}>\w</Typography>} secondary="Word character (a-z, A-Z, 0-9, _)" />
-                                </ListItem>
-                                <ListItem>
-                                  <ListItemText primary={<Typography sx={{ fontFamily: "monospace" }}>\s</Typography>} secondary="Whitespace character" />
-                                </ListItem>
-                              </List>
-                            </Grid>
-                            <Grid item xs={12} sm={6} md={4}>
-                              <Typography variant="subtitle2" gutterBottom>
-                                Quantifiers
-                              </Typography>
-                              <List dense>
-                                <ListItem>
-                                  <ListItemText primary={<Typography sx={{ fontFamily: "monospace" }}>*</Typography>} secondary="0 or more times" />
-                                </ListItem>
-                                <ListItem>
-                                  <ListItemText primary={<Typography sx={{ fontFamily: "monospace" }}>+</Typography>} secondary="1 or more times" />
-                                </ListItem>
-                                <ListItem>
-                                  <ListItemText primary={<Typography sx={{ fontFamily: "monospace" }}>?</Typography>} secondary="0 or 1 time" />
-                                </ListItem>
-                              </List>
-                            </Grid>
-                            <Grid item xs={12} sm={6} md={4}>
-                              <Typography variant="subtitle2" gutterBottom>
-                                Anchors
-                              </Typography>
-                              <List dense>
-                                <ListItem>
-                                  <ListItemText primary={<Typography sx={{ fontFamily: "monospace" }}>^</Typography>} secondary="Start of line" />
-                                </ListItem>
-                                <ListItem>
-                                  <ListItemText primary={<Typography sx={{ fontFamily: "monospace" }}>$</Typography>} secondary="End of line" />
-                                </ListItem>
-                                <ListItem>
-                                  <ListItemText primary={<Typography sx={{ fontFamily: "monospace" }}>\b</Typography>} secondary="Word boundary" />
-                                </ListItem>
-                              </List>
-                            </Grid>
-                          </Grid>
-                        </AccordionDetails>
-                      </Accordion>
-                    </Grid>
-                  </Grid>
+          <TabPanel value={tabValue} index={1}>
+            <Grid container spacing={3}>
+              <Grid item xs={12}>
+                <Box sx={{ mb: 3, display: "flex", alignItems: "center", gap: 2 }}>
+                  <FormControl size="small" sx={{ minWidth: 120 }}>
+                    <InputLabel>Diff Mode</InputLabel>
+                    <Select value={diffMode} label="Diff Mode" onChange={(e) => setDiffMode(e.target.value)}>
+                      <MenuItem value="line">Line by Line</MenuItem>
+                      <MenuItem value="word">Word by Word</MenuItem>
+                      <MenuItem value="char">Character by Character</MenuItem>
+                    </Select>
+                  </FormControl>
+                  <Button variant="outlined" onClick={() => setShowLineNumbers(!showLineNumbers)} startIcon={<Info />}>
+                    {showLineNumbers ? "Hide Line Numbers" : "Show Line Numbers"}
+                  </Button>
+                  <Box sx={{ flexGrow: 1 }} />
+                  <Tooltip title="Swap Texts">
+                    <IconButton onClick={handleSwapTexts} color="primary">
+                      <CompareArrows />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="Clear All">
+                    <IconButton onClick={handleClearTexts} color="error">
+                      <Clear />
+                    </IconButton>
+                  </Tooltip>
                 </Box>
-              )}
-            </Grid>
-          </Grid>
-                </TabPanel>
-
-                <TabPanel value={tabValue} index={3}>
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
-              <Paper variant="outlined" sx={{ p: 2 }}>
-                <FormControl fullWidth sx={{ mb: 2 }}>
-                  <InputLabel>Generation Type</InputLabel>
-                  <Select value={loremType} label="Generation Type" onChange={handleLoremTypeChange}>
-                    <MenuItem value="paragraphs">Paragraphs</MenuItem>
-                    <MenuItem value="words">Words</MenuItem>
-                  </Select>
-                </FormControl>
-
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="subtitle2" gutterBottom>
-                    {loremType === "paragraphs" ? "Number of Paragraphs" : "Number of Words"}
-                  </Typography>
-                  <Grid container spacing={2} alignItems="center">
-                    <Grid item xs={12} sm={8}>
-                      <Slider
-                        value={customCount}
-                        onChange={(e, newValue) => setCustomCount(newValue)}
-                        min={1}
-                        max={loremType === "paragraphs" ? 10 : 1000}
-                        marks={
-                          loremType === "paragraphs"
-                            ? [
-                                { value: 1, label: "1" },
-                                { value: 5, label: "5" },
-                                { value: 10, label: "10" },
-                              ]
-                            : [
-                                { value: 1, label: "1" },
-                                { value: 250, label: "250" },
-                                { value: 500, label: "500" },
-                                { value: 1000, label: "1000" },
-                              ]
-                        }
-                        valueLabelDisplay="auto"
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={4}>
-                      <TextField
-                        fullWidth
-                        type="number"
-                        value={customCount}
-                        onChange={(e) => {
-                          const value = parseInt(e.target.value);
-                          if (value > 0 && value <= (loremType === "paragraphs" ? 10 : 1000)) {
-                            setCustomCount(value);
-                          }
-                        }}
-                        inputProps={{
-                          min: 1,
-                          max: loremType === "paragraphs" ? 10 : 1000,
-                        }}
-                        size="small"
-                      />
-                    </Grid>
-                  </Grid>
-                </Box>
-
-                <Button variant="contained" onClick={handleLoremIpsum} disabled={loading} fullWidth>
-                  Generate Lorem Ipsum
-                </Button>
-
-                <Box sx={{ mt: 2 }}>
-                  <Typography variant="caption" color="text.secondary">
-                    {loremType === "paragraphs" ? "Generate between 1-10 paragraphs of Lorem Ipsum text" : "Generate between 1-1000 words of Lorem Ipsum text"}
-                  </Typography>
-                </Box>
-              </Paper>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <Box sx={{ position: "relative" }}>
-                <TextField
-                  fullWidth
-                  multiline
-                  rows={10}
-                  label="Generated Text"
-                  value={outputText}
-                  InputProps={{
-                    readOnly: true,
-                  }}
-                  variant="outlined"
-                />
-                {outputText && (
-                  <Tooltip title="Copy to Clipboard">
-                    <IconButton sx={{ position: "absolute", top: 8, right: 8 }} onClick={() => handleCopyText(outputText)}>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <Box sx={{ position: "relative" }}>
+                  <TextField fullWidth multiline rows={10} label="First Text" value={text1} onChange={(e) => setText1(e.target.value)} variant="outlined" placeholder="Enter or paste your first text here..." />
+                  <Tooltip title="Copy Text">
+                    <IconButton sx={{ position: "absolute", top: 8, right: 8 }} onClick={() => handleCopyText(text1)}>
                       <ContentCopy />
                     </IconButton>
                   </Tooltip>
-                )}
-              </Box>
-            </Grid>
-          </Grid>
-                </TabPanel>
-
-                <TabPanel value={tabValue} index={4}>
-          <Grid container spacing={3}>
-            <Grid item xs={12}>
-              <Box sx={{ mb: 3, display: "flex", alignItems: "center", gap: 2 }}>
-                <Typography variant="h6">Markdown Editor</Typography>
-                <Box sx={{ flexGrow: 1 }} />
-                <Button variant="outlined" startIcon={<ContentCopy />} onClick={() => handleCopyText(markdownText)}>
-                  Copy Markdown
-                </Button>
-                <Button variant="outlined" onClick={() => setMarkdownText(markdownExample)}>
-                  Load Example
-                </Button>
-              </Box>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <Paper variant="outlined" sx={{ height: "100%" }}>
-                <TextField
-                  fullWidth
-                  multiline
-                  rows={25}
-                  value={markdownText}
-                  onChange={(e) => setMarkdownText(e.target.value)}
+                </Box>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <Box sx={{ position: "relative" }}>
+                  <TextField fullWidth multiline rows={10} label="Second Text" value={text2} onChange={(e) => setText2(e.target.value)} variant="outlined" placeholder="Enter or paste your second text here..." />
+                  <Tooltip title="Copy Text">
+                    <IconButton sx={{ position: "absolute", top: 8, right: 8 }} onClick={() => handleCopyText(text2)}>
+                      <ContentCopy />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
+              </Grid>
+              <Grid item xs={12}>
+                <Box sx={{ display: "flex", gap: 2, alignItems: "center", mb: 2 }}>
+                  <Button variant="contained" onClick={handleTextDiff} disabled={loading || !text1 || !text2}>
+                    Compare Texts
+                  </Button>
+                  {diffResult.length > 0 && (
+                    <Box sx={{ display: "flex", gap: 1 }}>
+                      <Chip label={`${diffStats.additions} Additions`} color="success" variant="outlined" />
+                      <Chip label={`${diffStats.deletions} Deletions`} color="error" variant="outlined" />
+                      <Chip label={`${diffStats.changes} Changes`} color="warning" variant="outlined" />
+                    </Box>
+                  )}
+                </Box>
+              </Grid>
+              <Grid item xs={12}>
+                <Paper
                   variant="outlined"
-                  placeholder="Enter markdown text here..."
-                  InputProps={{
-                    sx: {
-                      fontFamily: "monospace",
-                      fontSize: "14px",
-                    },
-                  }}
                   sx={{
-                    "& .MuiOutlinedInput-root": {
-                      borderRadius: 0,
-                      "& fieldset": {
-                        border: "none",
+                    p: 2,
+                    maxHeight: "500px",
+                    overflow: "auto",
+                    bgcolor: "#fafafa",
+                    ...(diffResult.length === 0 && {
+                      display: "flex",
+                      justifyContent: "center",
+                      alignItems: "center",
+                      minHeight: "200px",
+                    }),
+                  }}
+                >
+                  {diffResult.length === 0 ? (
+                    <Typography color="textSecondary">Enter text in both fields and click "Compare Texts" to see the differences</Typography>
+                  ) : (
+                    diffResult.map((diff, index) => (
+                      <Box
+                        key={index}
+                        sx={{
+                          p: 1,
+                          my: 0.5,
+                          borderRadius: 1,
+                          fontFamily: "monospace",
+                          fontSize: "14px",
+                          bgcolor: diff.type === "add" ? "success.light" : diff.type === "remove" ? "error.light" : "warning.light",
+                          display: "flex",
+                          gap: 2,
+                          alignItems: "flex-start",
+                        }}
+                      >
+                        {showLineNumbers && (
+                          <Typography
+                            sx={{
+                              color: "text.secondary",
+                              minWidth: "3em",
+                              textAlign: "right",
+                              mr: 2,
+                              userSelect: "none",
+                            }}
+                          >
+                            {diff.lineNumber || index + 1}
+                          </Typography>
+                        )}
+                        <Box sx={{ flexGrow: 1 }}>
+                          {diff.type === "change" ? (
+                            <>
+                              <Box sx={{ color: "error.dark", mb: 0.5 }}>- {diff.oldLine}</Box>
+                              <Box sx={{ color: "success.dark" }}>+ {diff.newLine}</Box>
+                            </>
+                          ) : (
+                            <Box
+                              sx={{
+                                color: diff.type === "add" ? "success.dark" : "error.dark",
+                              }}
+                            >
+                              {diff.type === "add" ? "+ " : "- "}
+                              {diff.line}
+                            </Box>
+                          )}
+                        </Box>
+                        <Tooltip title="Copy Text">
+                          <IconButton size="small" onClick={() => handleCopyText(diff.type === "change" ? `${diff.oldLine}\n${diff.newLine}` : diff.line)}>
+                            <ContentCopy fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
+                    ))
+                  )}
+                </Paper>
+              </Grid>
+            </Grid>
+          </TabPanel>
+
+          <TabPanel value={tabValue} index={2}>
+            <Grid container spacing={3}>
+              <Grid item xs={12}>
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="h6" gutterBottom>
+                    Regex Pattern Builder
+                  </Typography>
+                  <Paper variant="outlined" sx={{ p: 2 }}>
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} md={8}>
+                        <TextField
+                          fullWidth
+                          label="Regular Expression Pattern"
+                          value={regexPattern}
+                          onChange={(e) => setRegexPattern(e.target.value)}
+                          error={!isValidRegex}
+                          helperText={regexError}
+                          InputProps={{
+                            startAdornment: <Search sx={{ color: "action.active", mr: 1 }} />,
+                            endAdornment: (
+                              <Box sx={{ display: "flex", gap: 1 }}>
+                                {regexPattern && (
+                                  <IconButton size="small" onClick={() => setRegexPattern("")}>
+                                    <Clear />
+                                  </IconButton>
+                                )}
+                                <IconButton size="small" onClick={handleSavePattern}>
+                                  <Bookmark />
+                                </IconButton>
+                              </Box>
+                            ),
+                          }}
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={4}>
+                        <FormControl fullWidth>
+                          <InputLabel>Flags</InputLabel>
+                          <Select
+                            multiple
+                            value={regexFlags.split("")}
+                            onChange={(e) => setRegexFlags(e.target.value.join(""))}
+                            label="Flags"
+                            renderValue={(selected) => (
+                              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+                                {selected.map((flag) => (
+                                  <Chip key={flag} label={flag} size="small" color={flag === "g" ? "primary" : flag === "i" ? "secondary" : flag === "m" ? "warning" : "info"} />
+                                ))}
+                              </Box>
+                            )}
+                          >
+                            <MenuItem value="g">
+                              <Tooltip title="Match all occurrences">
+                                <Box sx={{ display: "flex", alignItems: "center" }}>
+                                  <Typography>Global (g)</Typography>
+                                  <InfoOutlined sx={{ ml: 1, fontSize: "small" }} />
+                                </Box>
+                              </Tooltip>
+                            </MenuItem>
+                            <MenuItem value="i">
+                              <Tooltip title="Case-insensitive matching">
+                                <Box sx={{ display: "flex", alignItems: "center" }}>
+                                  <Typography>Case Insensitive (i)</Typography>
+                                  <InfoOutlined sx={{ ml: 1, fontSize: "small" }} />
+                                </Box>
+                              </Tooltip>
+                            </MenuItem>
+                            <MenuItem value="m">
+                              <Tooltip title="Multiline mode - ^ and $ match start/end of each line">
+                                <Box sx={{ display: "flex", alignItems: "center" }}>
+                                  <Typography>Multiline (m)</Typography>
+                                  <InfoOutlined sx={{ ml: 1, fontSize: "small" }} />
+                                </Box>
+                              </Tooltip>
+                            </MenuItem>
+                            <MenuItem value="s">
+                              <Tooltip title="Dot matches newline characters">
+                                <Box sx={{ display: "flex", alignItems: "center" }}>
+                                  <Typography>Single Line (s)</Typography>
+                                  <InfoOutlined sx={{ ml: 1, fontSize: "small" }} />
+                                </Box>
+                              </Tooltip>
+                            </MenuItem>
+                          </Select>
+                        </FormControl>
+                      </Grid>
+                    </Grid>
+                  </Paper>
+                </Box>
+              </Grid>
+
+              <Grid item xs={12} md={4}>
+                <Paper variant="outlined" sx={{ height: "100%" }}>
+                  <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
+                    <Tabs value={selectedPatternTab} onChange={(e, newValue) => setSelectedPatternTab(newValue)} variant="scrollable" scrollButtons="auto">
+                      {regexCategories.map((category, index) => (
+                        <Tab key={index} label={category.name} />
+                      ))}
+                      {savedPatterns.length > 0 && <Tab label="Saved" />}
+                    </Tabs>
+                  </Box>
+                  {regexCategories.map((category, index) => (
+                    <TabPanel key={index} value={selectedPatternTab} index={index}>
+                      <List>
+                        {category.patterns.map((pattern, patternIndex) => (
+                          <ListItem key={patternIndex} button onClick={() => handlePatternSelect(pattern)}>
+                            <ListItemText
+                              primary={pattern.name}
+                              secondary={
+                                <Box>
+                                  <Typography variant="body2" color="text.secondary">
+                                    {pattern.description}
+                                  </Typography>
+                                  <Typography variant="caption" sx={{ fontFamily: "monospace" }}>
+                                    Example: {pattern.example}
+                                  </Typography>
+                                </Box>
+                              }
+                            />
+                            <ListItemSecondaryAction>
+                              <IconButton
+                                edge="end"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleCopyText(pattern.pattern);
+                                }}
+                              >
+                                <ContentCopy />
+                              </IconButton>
+                            </ListItemSecondaryAction>
+                          </ListItem>
+                        ))}
+                      </List>
+                    </TabPanel>
+                  ))}
+                  {savedPatterns.length > 0 && (
+                    <TabPanel value={selectedPatternTab} index={regexCategories.length}>
+                      <List>
+                        {savedPatterns.map((pattern, index) => (
+                          <ListItem key={index} button onClick={() => handlePatternSelect(pattern)}>
+                            <ListItemText primary={pattern.name} secondary={pattern.description} />
+                            <ListItemSecondaryAction>
+                              <IconButton
+                                edge="end"
+                                onClick={() => {
+                                  const newPatterns = [...savedPatterns];
+                                  newPatterns.splice(index, 1);
+                                  setSavedPatterns(newPatterns);
+                                }}
+                              >
+                                <Clear />
+                              </IconButton>
+                            </ListItemSecondaryAction>
+                          </ListItem>
+                        ))}
+                      </List>
+                    </TabPanel>
+                  )}
+                </Paper>
+              </Grid>
+
+              <Grid item xs={12} md={8}>
+                <TextField fullWidth multiline rows={6} label="Test Text" value={inputText} onChange={(e) => setInputText(e.target.value)} variant="outlined" placeholder="Enter text to test against the regex pattern..." />
+                <Button variant="contained" onClick={handleRegexTest} disabled={loading || !regexPattern} sx={{ mt: 2 }}>
+                  Test Pattern
+                </Button>
+
+                {regexPattern && inputText && (
+                  <Box sx={{ mt: 3 }}>
+                    <Typography variant="h6" gutterBottom>
+                      Results
+                    </Typography>
+                    <Grid container spacing={2}>
+                      <Grid item xs={12}>
+                        <Accordion defaultExpanded>
+                          <AccordionSummary expandIcon={<ExpandMore />}>
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                              <Typography>Test Results</Typography>
+                              {regexError ? <Chip size="small" icon={<Warning />} label="Invalid Pattern" color="error" /> : regexMatches.length > 0 ? <Chip size="small" icon={<CheckCircle />} label={`${regexMatches.length} Match${regexMatches.length > 1 ? "es" : ""}`} color="success" /> : <Chip size="small" label="No Matches" color="default" />}
+                            </Box>
+                          </AccordionSummary>
+                          <AccordionDetails>
+                            {regexError ? (
+                              <Alert severity="error" sx={{ mb: 2 }}>
+                                {regexError}
+                              </Alert>
+                            ) : (
+                              <>
+                                <Paper
+                                  variant="outlined"
+                                  sx={{
+                                    p: 2,
+                                    mb: 2,
+                                    bgcolor: "#fafafa",
+                                    border: "1px solid",
+                                    borderColor: regexMatches.length > 0 ? "success.light" : "grey.300",
+                                  }}
+                                >
+                                  <Box dangerouslySetInnerHTML={{ __html: highlightedText || inputText }} />
+                                </Paper>
+
+                                {regexMatches.length > 0 ? (
+                                  <List>
+                                    {regexMatches.map((match, index) => (
+                                      <ListItem key={index}>
+                                        <ListItemText
+                                          primary={<Typography sx={{ fontFamily: "monospace" }}>{match}</Typography>}
+                                          secondary={
+                                            captureGroups[index]?.length > 1 && (
+                                              <Box sx={{ mt: 1 }}>
+                                                {captureGroups[index].slice(1).map((group, groupIndex) => (
+                                                  <Chip key={groupIndex} label={`Group ${groupIndex + 1}: ${group}`} size="small" sx={{ mr: 1, mb: 1 }} />
+                                                ))}
+                                              </Box>
+                                            )
+                                          }
+                                        />
+                                        <ListItemSecondaryAction>
+                                          <IconButton edge="end" onClick={() => handleCopyText(match)}>
+                                            <ContentCopy />
+                                          </IconButton>
+                                        </ListItemSecondaryAction>
+                                      </ListItem>
+                                    ))}
+                                  </List>
+                                ) : (
+                                  <Box sx={{ textAlign: "center", py: 2 }}>
+                                    <Typography color="textSecondary" gutterBottom>
+                                      No matches found in the test text.
+                                    </Typography>
+                                    <Typography variant="body2" color="textSecondary">
+                                      Try adjusting your pattern or checking the test text.
+                                    </Typography>
+                                  </Box>
+                                )}
+                              </>
+                            )}
+                          </AccordionDetails>
+                        </Accordion>
+                      </Grid>
+
+                      <Grid item xs={12}>
+                        <Accordion defaultExpanded>
+                          <AccordionSummary expandIcon={<ExpandMore />}>
+                            <Typography>Pattern Explanation</Typography>
+                          </AccordionSummary>
+                          <AccordionDetails>
+                            <PatternExplanation pattern={regexCategories.flatMap((cat) => cat.patterns).find((p) => p.pattern === regexPattern)} parts={patternParts} />
+                            {regexFlags && (
+                              <Box sx={{ mt: 2 }}>
+                                <Typography variant="subtitle2" gutterBottom>
+                                  Active Flags:
+                                </Typography>
+                                <Box sx={{ display: "flex", gap: 1 }}>
+                                  {regexFlags.split("").map((flag) => (
+                                    <Chip key={flag} label={flag === "g" ? "Global (g)" : flag === "i" ? "Case Insensitive (i)" : flag === "m" ? "Multiline (m)" : flag === "s" ? "Single Line (s)" : flag} size="small" color={flag === "g" ? "primary" : flag === "i" ? "secondary" : flag === "m" ? "warning" : "info"} />
+                                  ))}
+                                </Box>
+                              </Box>
+                            )}
+                          </AccordionDetails>
+                        </Accordion>
+                      </Grid>
+
+                      <Grid item xs={12}>
+                        <Accordion>
+                          <AccordionSummary expandIcon={<ExpandMore />}>
+                            <Typography>Quick Reference</Typography>
+                          </AccordionSummary>
+                          <AccordionDetails>
+                            <Grid container spacing={2}>
+                              <Grid item xs={12} sm={6} md={4}>
+                                <Typography variant="subtitle2" gutterBottom>
+                                  Character Classes
+                                </Typography>
+                                <List dense>
+                                  <ListItem>
+                                    <ListItemText primary={<Typography sx={{ fontFamily: "monospace" }}>\d</Typography>} secondary="Any digit (0-9)" />
+                                  </ListItem>
+                                  <ListItem>
+                                    <ListItemText primary={<Typography sx={{ fontFamily: "monospace" }}>\w</Typography>} secondary="Word character (a-z, A-Z, 0-9, _)" />
+                                  </ListItem>
+                                  <ListItem>
+                                    <ListItemText primary={<Typography sx={{ fontFamily: "monospace" }}>\s</Typography>} secondary="Whitespace character" />
+                                  </ListItem>
+                                </List>
+                              </Grid>
+                              <Grid item xs={12} sm={6} md={4}>
+                                <Typography variant="subtitle2" gutterBottom>
+                                  Quantifiers
+                                </Typography>
+                                <List dense>
+                                  <ListItem>
+                                    <ListItemText primary={<Typography sx={{ fontFamily: "monospace" }}>*</Typography>} secondary="0 or more times" />
+                                  </ListItem>
+                                  <ListItem>
+                                    <ListItemText primary={<Typography sx={{ fontFamily: "monospace" }}>+</Typography>} secondary="1 or more times" />
+                                  </ListItem>
+                                  <ListItem>
+                                    <ListItemText primary={<Typography sx={{ fontFamily: "monospace" }}>?</Typography>} secondary="0 or 1 time" />
+                                  </ListItem>
+                                </List>
+                              </Grid>
+                              <Grid item xs={12} sm={6} md={4}>
+                                <Typography variant="subtitle2" gutterBottom>
+                                  Anchors
+                                </Typography>
+                                <List dense>
+                                  <ListItem>
+                                    <ListItemText primary={<Typography sx={{ fontFamily: "monospace" }}>^</Typography>} secondary="Start of line" />
+                                  </ListItem>
+                                  <ListItem>
+                                    <ListItemText primary={<Typography sx={{ fontFamily: "monospace" }}>$</Typography>} secondary="End of line" />
+                                  </ListItem>
+                                  <ListItem>
+                                    <ListItemText primary={<Typography sx={{ fontFamily: "monospace" }}>\b</Typography>} secondary="Word boundary" />
+                                  </ListItem>
+                                </List>
+                              </Grid>
+                            </Grid>
+                          </AccordionDetails>
+                        </Accordion>
+                      </Grid>
+                    </Grid>
+                  </Box>
+                )}
+              </Grid>
+            </Grid>
+          </TabPanel>
+
+          <TabPanel value={tabValue} index={3}>
+            <Grid container spacing={3}>
+              <Grid item xs={12} md={6}>
+                <Paper variant="outlined" sx={{ p: 2 }}>
+                  <FormControl fullWidth sx={{ mb: 2 }}>
+                    <InputLabel>Generation Type</InputLabel>
+                    <Select value={loremType} label="Generation Type" onChange={handleLoremTypeChange}>
+                      <MenuItem value="paragraphs">Paragraphs</MenuItem>
+                      <MenuItem value="words">Words</MenuItem>
+                    </Select>
+                  </FormControl>
+
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="subtitle2" gutterBottom>
+                      {loremType === "paragraphs" ? "Number of Paragraphs" : "Number of Words"}
+                    </Typography>
+                    <Grid container spacing={2} alignItems="center">
+                      <Grid item xs={12} sm={8}>
+                        <Slider
+                          value={customCount}
+                          onChange={(e, newValue) => setCustomCount(newValue)}
+                          min={1}
+                          max={loremType === "paragraphs" ? 10 : 1000}
+                          marks={
+                            loremType === "paragraphs"
+                              ? [
+                                  { value: 1, label: "1" },
+                                  { value: 5, label: "5" },
+                                  { value: 10, label: "10" },
+                                ]
+                              : [
+                                  { value: 1, label: "1" },
+                                  { value: 250, label: "250" },
+                                  { value: 500, label: "500" },
+                                  { value: 1000, label: "1000" },
+                                ]
+                          }
+                          valueLabelDisplay="auto"
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={4}>
+                        <TextField
+                          fullWidth
+                          type="number"
+                          value={customCount}
+                          onChange={(e) => {
+                            const value = parseInt(e.target.value);
+                            if (value > 0 && value <= (loremType === "paragraphs" ? 10 : 1000)) {
+                              setCustomCount(value);
+                            }
+                          }}
+                          inputProps={{
+                            min: 1,
+                            max: loremType === "paragraphs" ? 10 : 1000,
+                          }}
+                          size="small"
+                        />
+                      </Grid>
+                    </Grid>
+                  </Box>
+
+                  <Button variant="contained" onClick={handleLoremIpsum} disabled={loading} fullWidth>
+                    Generate Lorem Ipsum
+                  </Button>
+
+                  <Box sx={{ mt: 2 }}>
+                    <Typography variant="caption" color="text.secondary">
+                      {loremType === "paragraphs" ? "Generate between 1-10 paragraphs of Lorem Ipsum text" : "Generate between 1-1000 words of Lorem Ipsum text"}
+                    </Typography>
+                  </Box>
+                </Paper>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <Box sx={{ position: "relative" }}>
+                  <TextField
+                    fullWidth
+                    multiline
+                    rows={10}
+                    label="Generated Text"
+                    value={outputText}
+                    InputProps={{
+                      readOnly: true,
+                    }}
+                    variant="outlined"
+                  />
+                  {outputText && (
+                    <Tooltip title="Copy to Clipboard">
+                      <IconButton sx={{ position: "absolute", top: 8, right: 8 }} onClick={() => handleCopyText(outputText)}>
+                        <ContentCopy />
+                      </IconButton>
+                    </Tooltip>
+                  )}
+                </Box>
+              </Grid>
+            </Grid>
+          </TabPanel>
+
+          <TabPanel value={tabValue} index={4}>
+            <Grid container spacing={3}>
+              <Grid item xs={12}>
+                <Box sx={{ mb: 3, display: "flex", alignItems: "center", gap: 2 }}>
+                  <Typography variant="h6">Markdown Editor</Typography>
+                  <Box sx={{ flexGrow: 1 }} />
+                  <Button variant="outlined" startIcon={<ContentCopy />} onClick={() => handleCopyText(markdownText)}>
+                    Copy Markdown
+                  </Button>
+                  <Button variant="outlined" onClick={() => setMarkdownText(markdownExample)}>
+                    Load Example
+                  </Button>
+                </Box>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <Paper variant="outlined" sx={{ height: "100%" }}>
+                  <TextField
+                    fullWidth
+                    multiline
+                    rows={25}
+                    value={markdownText}
+                    onChange={(e) => setMarkdownText(e.target.value)}
+                    variant="outlined"
+                    placeholder="Enter markdown text here..."
+                    InputProps={{
+                      sx: {
+                        fontFamily: "monospace",
+                        fontSize: "14px",
+                      },
+                    }}
+                    sx={{
+                      "& .MuiOutlinedInput-root": {
+                        borderRadius: 0,
+                        "& fieldset": {
+                          border: "none",
+                        },
+                      },
+                    }}
+                  />
+                </Paper>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <Paper
+                  variant="outlined"
+                  sx={{
+                    p: 3,
+                    height: "100%",
+                    maxHeight: "800px",
+                    overflow: "auto",
+                    "& h1": {
+                      borderBottom: "1px solid",
+                      borderColor: "divider",
+                      pb: 1,
+                      mb: 2,
+                    },
+                    "& h2": {
+                      borderBottom: "1px solid",
+                      borderColor: "divider",
+                      pb: 1,
+                      mb: 2,
+                      mt: 3,
+                    },
+                    "& h3, h4, h5, h6": {
+                      mt: 2,
+                      mb: 1,
+                    },
+                    "& p": {
+                      my: 1,
+                      "& img": {
+                        maxWidth: "100%",
+                        height: "auto",
+                        display: "block",
+                        margin: "1rem auto",
+                        borderRadius: 1,
+                        boxShadow: 1,
                       },
                     },
-                  }}
-                />
-              </Paper>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <Paper
-                variant="outlined"
-                sx={{
-                  p: 3,
-                  height: "100%",
-                  maxHeight: "800px",
-                  overflow: "auto",
-                  "& h1": {
-                    borderBottom: "1px solid",
-                    borderColor: "divider",
-                    pb: 1,
-                    mb: 2,
-                  },
-                  "& h2": {
-                    borderBottom: "1px solid",
-                    borderColor: "divider",
-                    pb: 1,
-                    mb: 2,
-                    mt: 3,
-                  },
-                  "& h3, h4, h5, h6": {
-                    mt: 2,
-                    mb: 1,
-                  },
-                  "& p": {
-                    my: 1,
+                    "& ul, ol": {
+                      pl: 3,
+                      my: 1,
+                    },
+                    "& li": {
+                      my: 0.5,
+                    },
+                    "& blockquote": {
+                      borderLeft: "4px solid",
+                      borderColor: "grey.300",
+                      pl: 2,
+                      py: 1,
+                      my: 2,
+                      bgcolor: "grey.50",
+                    },
+                    "& code": {
+                      fontFamily: "monospace",
+                      bgcolor: "grey.100",
+                      p: 0.5,
+                      borderRadius: 1,
+                    },
+                    "& pre": {
+                      bgcolor: "grey.900",
+                      color: "common.white",
+                      p: 2,
+                      borderRadius: 1,
+                      overflow: "auto",
+                      "& code": {
+                        bgcolor: "transparent",
+                      },
+                    },
+                    "& table": {
+                      borderCollapse: "collapse",
+                      width: "100%",
+                      my: 2,
+                      "& thead": {
+                        bgcolor: "grey.50",
+                      },
+                      "& th, td": {
+                        border: "1px solid",
+                        borderColor: "divider",
+                        p: 1.5,
+                        textAlign: "left",
+                      },
+                      "& th": {
+                        fontWeight: "bold",
+                      },
+                      "& tr:nth-of-type(even)": {
+                        bgcolor: "grey.50",
+                      },
+                      "& tr:hover": {
+                        bgcolor: "action.hover",
+                      },
+                    },
                     "& img": {
                       maxWidth: "100%",
                       height: "auto",
@@ -1191,103 +1255,41 @@ function example() {
                       borderRadius: 1,
                       boxShadow: 1,
                     },
-                  },
-                  "& ul, ol": {
-                    pl: 3,
-                    my: 1,
-                  },
-                  "& li": {
-                    my: 0.5,
-                  },
-                  "& blockquote": {
-                    borderLeft: "4px solid",
-                    borderColor: "grey.300",
-                    pl: 2,
-                    py: 1,
-                    my: 2,
-                    bgcolor: "grey.50",
-                  },
-                  "& code": {
-                    fontFamily: "monospace",
-                    bgcolor: "grey.100",
-                    p: 0.5,
-                    borderRadius: 1,
-                  },
-                  "& pre": {
-                    bgcolor: "grey.900",
-                    color: "common.white",
-                    p: 2,
-                    borderRadius: 1,
-                    overflow: "auto",
-                    "& code": {
-                      bgcolor: "transparent",
+                    "& a": {
+                      color: "primary.main",
+                      textDecoration: "none",
+                      "&:hover": {
+                        textDecoration: "underline",
+                      },
                     },
-                  },
-                  "& table": {
-                    borderCollapse: "collapse",
-                    width: "100%",
-                    my: 2,
-                    "& thead": {
-                      bgcolor: "grey.50",
-                    },
-                    "& th, td": {
-                      border: "1px solid",
-                      borderColor: "divider",
-                      p: 1.5,
-                      textAlign: "left",
-                    },
-                    "& th": {
-                      fontWeight: "bold",
-                    },
-                    "& tr:nth-of-type(even)": {
-                      bgcolor: "grey.50",
-                    },
-                    "& tr:hover": {
-                      bgcolor: "action.hover",
-                    },
-                  },
-                  "& img": {
-                    maxWidth: "100%",
-                    height: "auto",
-                    display: "block",
-                    margin: "1rem auto",
-                    borderRadius: 1,
-                    boxShadow: 1,
-                  },
-                  "& a": {
-                    color: "primary.main",
-                    textDecoration: "none",
-                    "&:hover": {
-                      textDecoration: "underline",
-                    },
-                  },
-                }}
-              >
-                <ReactMarkdown
-                  remarkPlugins={[remarkGfm]}
-                  rehypePlugins={[rehypeRaw]}
-                  components={{
-                    img: ({ node, ...props }) => (
-                      <Box sx={{ my: 2 }}>
-                        <img style={{ maxWidth: "100%", height: "auto" }} {...props} alt={props.alt || ""} />
-                      </Box>
-                    ),
-                    table: ({ node, ...props }) => (
-                      <Box sx={{ overflowX: "auto", my: 2 }}>
-                        <table {...props} />
-                      </Box>
-                    ),
                   }}
                 >
-                  {markdownText}
-                </ReactMarkdown>
-              </Paper>
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    rehypePlugins={[rehypeRaw]}
+                    components={{
+                      img: ({ node, ...props }) => (
+                        <Box sx={{ my: 2 }}>
+                          <img style={{ maxWidth: "100%", height: "auto" }} {...props} alt={props.alt || ""} />
+                        </Box>
+                      ),
+                      table: ({ node, ...props }) => (
+                        <Box sx={{ overflowX: "auto", my: 2 }}>
+                          <table {...props} />
+                        </Box>
+                      ),
+                    }}
+                  >
+                    {markdownText}
+                  </ReactMarkdown>
+                </Paper>
+              </Grid>
             </Grid>
-          </Grid>
-                </TabPanel>
-            </Paper>
-        </Container>
-    );
+          </TabPanel>
+        </Paper>
+      </Box>
+    </Container>
+  );
 }
 
 function PatternExplanation({ pattern, parts }) {
@@ -1350,7 +1352,7 @@ function PatternExplanation({ pattern, parts }) {
         </>
       )}
     </Box>
-    );
+  );
 }
 
-export default TextTools; 
+export default TextTools;

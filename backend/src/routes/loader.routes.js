@@ -9,176 +9,505 @@ import { Buffer } from "buffer";
 
 const router = express.Router();
 
-// Helper function to generate CSS for different loader types
-const generateLoaderCSS = (type, size, speed, color, thickness, strokeWidth, radius, backgroundColor) => {
-  const styles = {
-    spinner: `
-      .loader {
-        border: ${strokeWidth}px solid #f3f3f3;
-        border-radius: ${radius}%;
-        border-top: ${strokeWidth}px solid ${color};
-        width: ${size}px;
-        height: ${size}px;
-        animation: spin ${speed}s linear infinite;
-        background-color: ${backgroundColor};
-      }
-      @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-      }
-    `,
-    dots: `
-      .loader {
-        width: ${size}px;
-        height: ${size / 4}px;
-        display: flex;
-        justify-content: space-between;
-        background-color: ${backgroundColor};
-      }
-      .loader > div {
-        width: ${size / 4}px;
-        height: ${size / 4}px;
-        background-color: ${color};
-        border-radius: ${radius}%;
-        animation: bounce ${speed}s infinite ease-in-out;
-      }
-      .loader > div:nth-child(2) { animation-delay: ${speed * 0.16}s; }
-      .loader > div:nth-child(3) { animation-delay: ${speed * 0.32}s; }
-      @keyframes bounce {
-        0%, 80%, 100% { transform: scale(0); }
-        40% { transform: scale(1); }
-      }
-    `,
-    bars: `
-      .loader {
-        width: ${size}px;
-        height: ${size}px;
-        display: flex;
-        justify-content: space-between;
-        background-color: ${backgroundColor};
-      }
-      .loader > div {
-        width: ${strokeWidth * 2}px;
-        background-color: ${color};
-        animation: stretch ${speed}s infinite ease-in-out;
-        border-radius: ${radius / 10}px;
-      }
-      .loader > div:nth-child(2) { animation-delay: ${speed * 0.1}s; }
-      .loader > div:nth-child(3) { animation-delay: ${speed * 0.2}s; }
-      .loader > div:nth-child(4) { animation-delay: ${speed * 0.3}s; }
-      .loader > div:nth-child(5) { animation-delay: ${speed * 0.4}s; }
-      @keyframes stretch {
-        0%, 40%, 100% { transform: scaleY(0.4); }
-        20% { transform: scaleY(1); }
-      }
-    `,
-    circles: `
-      .loader {
-        width: ${size}px;
-        height: ${size}px;
-        position: relative;
-        background-color: ${backgroundColor};
-      }
-      .loader > div {
-        position: absolute;
-        width: ${size * 0.8}px;
-        height: ${size * 0.8}px;
-        border: ${strokeWidth}px solid ${color};
-        border-radius: ${radius}%;
-        animation: ripple ${speed}s cubic-bezier(0, 0.2, 0.8, 1) infinite;
-      }
-      .loader > div:nth-child(2) { animation-delay: ${speed * -0.5}s; }
-      @keyframes ripple {
-        0% { transform: scale(0); opacity: 1; }
-        100% { transform: scale(1); opacity: 0; }
-      }
-    `,
-    "dual-ring": `
-      .loader {
-        display: inline-block;
-        width: ${size}px;
-        height: ${size}px;
-        background-color: ${backgroundColor};
-      }
-      .loader:after {
-        content: " ";
-        display: block;
-        width: ${size * 0.8}px;
-        height: ${size * 0.8}px;
-        margin: ${size * 0.1}px;
-        border-radius: ${radius}%;
-        border: ${strokeWidth}px solid ${color};
-        border-color: ${color} transparent ${color} transparent;
-        animation: dual-ring ${speed}s linear infinite;
-      }
-      @keyframes dual-ring {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-      }
-    `,
-    heart: `
-      .loader {
-        width: ${size}px;
-        height: ${size}px;
-        position: relative;
-        transform: rotate(45deg);
-        background-color: ${color};
-        animation: heart ${speed}s infinite;
-      }
-      .loader:before,
-      .loader:after {
-        content: "";
-        width: ${size}px;
-        height: ${size}px;
-        background-color: ${color};
-        border-radius: ${radius}%;
-        position: absolute;
-      }
-      .loader:before { left: -${size / 2}px; }
-      .loader:after { top: -${size / 2}px; }
-      @keyframes heart {
-        0% { transform: rotate(45deg) scale(0.8); }
-        5% { transform: rotate(45deg) scale(0.9); }
-        10% { transform: rotate(45deg) scale(0.8); }
-        15% { transform: rotate(45deg) scale(1); }
-        50% { transform: rotate(45deg) scale(0.8); }
-        100% { transform: rotate(45deg) scale(0.8); }
-      }
-    `,
-    hourglass: `
-      .loader {
-        width: ${size}px;
-        height: ${size}px;
-        position: relative;
-        animation: hourglass ${speed}s infinite;
-        background-color: ${backgroundColor};
-      }
-      .loader:before,
-      .loader:after {
-        content: "";
-        position: absolute;
-        top: 0;
-        left: ${size / 4}px;
-        width: ${size / 2}px;
-        height: ${size / 2}px;
-        border: ${strokeWidth}px solid ${color};
-      }
-      .loader:before {
-        clip-path: polygon(0% 0%, 100% 0%, 50% 100%);
-      }
-      .loader:after {
-        top: 50%;
-        clip-path: polygon(50% 0%, 100% 100%, 0% 100%);
-      }
-      @keyframes hourglass {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(180deg); }
-      }
-    `,
-  };
+// Helper to generate loader CSS
+const generateLoaderCSS = (type, size, speed, color, thickness) => {
+  const sizeValue = `${size}px`;
+  const defaultSpeed = '1.2s';
+  const animationSpeed = `${speed}s`;
+  const thicknessVal = `${thickness}px`;
+  
+  let css = '';
+  let html = '';
+  
+  switch(type) {
+    case 'spinner':
+      css = `
+        .loader {
+          border: ${thicknessVal} solid #f3f3f3;
+          border-top: ${thicknessVal} solid ${color};
+          border-radius: 50%;
+          width: ${sizeValue};
+          height: ${sizeValue};
+          animation: spin ${animationSpeed} linear infinite;
+        }
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `;
+      html = '<div class="loader"></div>';
+      break;
+    
+    case 'pie':
+      css = `
+        .loader {
+          width: ${sizeValue};
+          height: ${sizeValue};
+          border-radius: 50%;
+          background: conic-gradient(${color} 0%, #f3f3f3 0%);
+          animation: pie-fill ${animationSpeed} ease-in-out infinite alternate;
+        }
+        @keyframes pie-fill {
+          0% { background: conic-gradient(${color} 0%, #f3f3f3 0%); }
+          100% { background: conic-gradient(${color} 100%, #f3f3f3 0%); }
+        }
+      `;
+      html = '<div class="loader"></div>';
+      break;
+    
+    case 'dots':
+      css = `
+        .loader {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          gap: ${thicknessVal};
+        }
+        .loader div {
+          width: ${Math.max(5, size/5)}px;
+          height: ${Math.max(5, size/5)}px;
+          background-color: ${color};
+          border-radius: 50%;
+          animation: bounce ${animationSpeed} infinite ease-in-out both;
+        }
+        .loader div:nth-child(1) { animation-delay: -0.32s; }
+        .loader div:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes bounce {
+          0%, 80%, 100% { transform: scale(0); }
+          40% { transform: scale(1); }
+        }
+      `;
+      html = '<div class="loader"><div></div><div></div><div></div></div>';
+      break;
+      
+    case 'bars':
+      css = `
+        .loader {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          gap: ${Math.max(2, thickness/2)}px;
+          height: ${sizeValue};
+        }
+        .loader div {
+          width: ${Math.max(3, thickness)}px;
+          height: 100%;
+          background-color: ${color};
+          animation: wave ${animationSpeed} infinite ease-in-out;
+        }
+        .loader div:nth-child(1) { animation-delay: -0.4s; }
+        .loader div:nth-child(2) { animation-delay: -0.3s; }
+        .loader div:nth-child(3) { animation-delay: -0.2s; }
+        .loader div:nth-child(4) { animation-delay: -0.1s; }
+        @keyframes wave {
+          0%, 40%, 100% { transform: scaleY(0.4); }
+          20% { transform: scaleY(1); }
+        }
+      `;
+      html = '<div class="loader"><div></div><div></div><div></div><div></div><div></div></div>';
+      break;
+      
+    case 'circles':
+      css = `
+        .loader {
+          position: relative;
+          width: ${sizeValue};
+          height: ${sizeValue};
+        }
+        .loader div {
+          position: absolute;
+          border: ${thicknessVal} solid ${color};
+          opacity: 1;
+          border-radius: 50%;
+          animation: ripple ${animationSpeed} cubic-bezier(0, 0.2, 0.8, 1) infinite;
+        }
+        .loader div:nth-child(2) {
+          animation-delay: -0.5s;
+        }
+        @keyframes ripple {
+          0% {
+            top: ${size/2}px;
+            left: ${size/2}px;
+            width: 0;
+            height: 0;
+            opacity: 1;
+          }
+          100% {
+            top: 0px;
+            left: 0px;
+            width: ${size}px;
+            height: ${size}px;
+            opacity: 0;
+          }
+        }
+      `;
+      html = '<div class="loader"><div></div><div></div></div>';
+      break;
+      
+    case 'dual-ring':
+      css = `
+        .loader {
+          display: inline-block;
+          width: ${sizeValue};
+          height: ${sizeValue};
+        }
+        .loader:after {
+          content: " ";
+          display: block;
+          width: ${Math.max(size - thickness*2, size*0.8)}px;
+          height: ${Math.max(size - thickness*2, size*0.8)}px;
+          margin: ${thickness}px;
+          border-radius: 50%;
+          border: ${thicknessVal} solid ${color};
+          border-color: ${color} transparent ${color} transparent;
+          animation: dual-ring ${animationSpeed} linear infinite;
+        }
+        @keyframes dual-ring {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `;
+      html = '<div class="loader"></div>';
+      break;
+      
+    case 'wave':
+      css = `
+        .loader {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          gap: ${Math.max(2, thickness/2)}px;
+          height: ${sizeValue};
+        }
+        .loader div {
+          background-color: ${color};
+          height: 100%;
+          width: ${Math.max(4, thickness)}px;
+          display: inline-block;
+          animation: wave ${animationSpeed} infinite ease-in-out;
+        }
+        .loader div:nth-child(1) { animation-delay: 0s; }
+        .loader div:nth-child(2) { animation-delay: 0.1s; }
+        .loader div:nth-child(3) { animation-delay: 0.2s; }
+        .loader div:nth-child(4) { animation-delay: 0.3s; }
+        .loader div:nth-child(5) { animation-delay: 0.4s; }
+        @keyframes wave {
+          0%, 40%, 100% { transform: scaleY(0.4); }
+          20% { transform: scaleY(1); }
+        }
+      `;
+      html = '<div class="loader"><div></div><div></div><div></div><div></div><div></div></div>';
+      break;
+      
+    case 'pulse':
+      css = `
+        .loader {
+          width: ${sizeValue};
+          height: ${sizeValue};
+          background-color: ${color};
+          border-radius: 50%;
+          animation: pulse ${animationSpeed} cubic-bezier(0.2, 0, 0.8, 1) infinite;
+        }
+        @keyframes pulse {
+          0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(${hexToRgb(color)}, 0.7); }
+          70% { transform: scale(1); box-shadow: 0 0 0 ${thickness*2}px rgba(${hexToRgb(color)}, 0); }
+          100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(${hexToRgb(color)}, 0); }
+        }
+      `;
+      html = '<div class="loader"></div>';
+      break;
+      
+    case 'cube':
+      css = `
+        .loader {
+          width: ${sizeValue};
+          height: ${sizeValue};
+          position: relative;
+          transform: rotateZ(45deg);
+          perspective: 1000px;
+        }
+        .loader-cube {
+          float: left;
+          width: 50%;
+          height: 50%;
+          position: relative;
+          transform: scale(1.1);
+        }
+        .loader-cube:before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background-color: ${color};
+          animation: foldCube ${animationSpeed} infinite linear both;
+          transform-origin: 100% 100%;
+        }
+        .loader-cube:nth-child(2) { transform: scale(1.1) rotateZ(90deg); }
+        .loader-cube:nth-child(3) { transform: scale(1.1) rotateZ(270deg); }
+        .loader-cube:nth-child(4) { transform: scale(1.1) rotateZ(180deg); }
+        .loader-cube:nth-child(2):before { animation-delay: 0.${Math.floor(speed*10)}s; }
+        .loader-cube:nth-child(3):before { animation-delay: 0.${Math.floor(speed*20)}s; }
+        .loader-cube:nth-child(4):before { animation-delay: 0.${Math.floor(speed*30)}s; }
+        @keyframes foldCube {
+          0%, 10% { transform: perspective(140px) rotateX(-180deg); opacity: 0; }
+          25%, 75% { transform: perspective(140px) rotateX(0deg); opacity: 1; }
+          90%, 100% { transform: perspective(140px) rotateY(180deg); opacity: 0; }
+        }
+      `;
+      html = '<div class="loader"><div class="loader-cube"></div><div class="loader-cube"></div><div class="loader-cube"></div><div class="loader-cube"></div></div>';
+      break;
+      
+    case 'square':
+      css = `
+        .loader {
+          width: ${sizeValue};
+          height: ${sizeValue};
+          background-color: ${color};
+          animation: squarePulse ${animationSpeed} infinite ease;
+        }
+        @keyframes squarePulse {
+          0% { transform: rotate(0deg) scale(1); }
+          50% { transform: rotate(45deg) scale(1.2); }
+          100% { transform: rotate(90deg) scale(1); }
+        }
+      `;
+      html = '<div class="loader"></div>';
+      break;
+      
+    case 'roller':
+      css = `
+        .loader {
+          display: inline-block;
+          position: relative;
+          width: ${sizeValue};
+          height: ${sizeValue};
+        }
+        .loader div {
+          animation: rollerChild ${animationSpeed} cubic-bezier(0.5, 0, 0.5, 1) infinite;
+          transform-origin: ${size/2}px ${size/2}px;
+        }
+        .loader div:after {
+          content: " ";
+          display: block;
+          position: absolute;
+          width: ${Math.max(thickness, size/12)}px;
+          height: ${Math.max(thickness, size/12)}px;
+          border-radius: 50%;
+          background: ${color};
+          margin: -${Math.max(thickness, size/24)}px 0 0 -${Math.max(thickness, size/24)}px;
+        }
+        .loader div:nth-child(1) { animation-delay: -0.036s; }
+        .loader div:nth-child(1):after { top: ${size*0.88}px; left: ${size/2}px; }
+        .loader div:nth-child(2) { animation-delay: -0.072s; }
+        .loader div:nth-child(2):after { top: ${size*0.82}px; left: ${size*0.82}px; }
+        .loader div:nth-child(3) { animation-delay: -0.108s; }
+        .loader div:nth-child(3):after { top: ${size/2}px; left: ${size*0.88}px; }
+        .loader div:nth-child(4) { animation-delay: -0.144s; }
+        .loader div:nth-child(4):after { top: ${size*0.18}px; left: ${size*0.82}px; }
+        .loader div:nth-child(5) { animation-delay: -0.18s; }
+        .loader div:nth-child(5):after { top: ${size*0.12}px; left: ${size/2}px; }
+        .loader div:nth-child(6) { animation-delay: -0.216s; }
+        .loader div:nth-child(6):after { top: ${size*0.18}px; left: ${size*0.18}px; }
+        .loader div:nth-child(7) { animation-delay: -0.252s; }
+        .loader div:nth-child(7):after { top: ${size/2}px; left: ${size*0.12}px; }
+        .loader div:nth-child(8) { animation-delay: -0.288s; }
+        .loader div:nth-child(8):after { top: ${size*0.82}px; left: ${size*0.18}px; }
+        @keyframes rollerChild {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `;
+      html = '<div class="loader"><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div></div>';
+      break;
+      
+    case 'clock':
+      css = `
+        .loader {
+          position: relative;
+          width: ${sizeValue};
+          height: ${sizeValue};
+          border: ${thicknessVal} solid ${color};
+          border-radius: 50%;
+        }
+        .loader:before, .loader:after {
+          content: "";
+          position: absolute;
+          background-color: ${color};
+          top: ${size/2}px;
+          transform-origin: 0 0;
+        }
+        .loader:before {
+          width: ${size*0.3}px;
+          height: ${thickness}px;
+          animation: clockHand ${animationSpeed} linear infinite;
+        }
+        .loader:after {
+          width: ${size*0.4}px;
+          height: ${thickness}px;
+          animation: clockHand ${speed*3}s linear infinite;
+        }
+        @keyframes clockHand {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `;
+      html = '<div class="loader"></div>';
+      break;
+      
+    case 'dot-spin':
+      css = `
+        .loader {
+          position: relative;
+          width: ${sizeValue};
+          height: ${sizeValue};
+        }
+        .loader div {
+          position: absolute;
+          background-color: ${color};
+          width: ${Math.max(5, size/6)}px;
+          height: ${Math.max(5, size/6)}px;
+          border-radius: 50%;
+          animation: dotSpin ${animationSpeed} linear infinite;
+        }
+        .loader div:nth-child(1) { top: 0; left: calc(50% - ${Math.max(5, size/6)/2}px); animation-delay: 0s; }
+        .loader div:nth-child(2) { top: calc(25% - ${Math.max(5, size/6)/2}px); left: calc(75% - ${Math.max(5, size/6)/2}px); animation-delay: -${speed/8}s; }
+        .loader div:nth-child(3) { top: calc(50% - ${Math.max(5, size/6)/2}px); left: calc(100% - ${Math.max(5, size/6)}px); animation-delay: -${speed/4}s; }
+        .loader div:nth-child(4) { top: calc(75% - ${Math.max(5, size/6)/2}px); left: calc(75% - ${Math.max(5, size/6)/2}px); animation-delay: -${speed*3/8}s; }
+        .loader div:nth-child(5) { top: calc(100% - ${Math.max(5, size/6)}px); left: calc(50% - ${Math.max(5, size/6)/2}px); animation-delay: -${speed/2}s; }
+        .loader div:nth-child(6) { top: calc(75% - ${Math.max(5, size/6)/2}px); left: calc(25% - ${Math.max(5, size/6)/2}px); animation-delay: -${speed*5/8}s; }
+        .loader div:nth-child(7) { top: calc(50% - ${Math.max(5, size/6)/2}px); left: 0; animation-delay: -${speed*3/4}s; }
+        .loader div:nth-child(8) { top: calc(25% - ${Math.max(5, size/6)/2}px); left: calc(25% - ${Math.max(5, size/6)/2}px); animation-delay: -${speed*7/8}s; }
+        @keyframes dotSpin {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.2; }
+        }
+      `;
+      html = '<div class="loader"><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div></div>';
+      break;
+      
+    case 'folding-cube':
+      css = `
+        .loader {
+          width: ${sizeValue};
+          height: ${sizeValue};
+          position: relative;
+          transform: rotateZ(45deg);
+        }
+        .loader-cube {
+          float: left;
+          width: 50%;
+          height: 50%;
+          position: relative;
+          transform: scale(1.1);
+        }
+        .loader-cube:before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background-color: ${color};
+          animation: foldCube ${animationSpeed} infinite linear both;
+          transform-origin: 100% 100%;
+        }
+        .loader-cube:nth-child(2) {
+          transform: scale(1.1) rotateZ(90deg);
+        }
+        .loader-cube:nth-child(4) {
+          transform: scale(1.1) rotateZ(180deg);
+        }
+        .loader-cube:nth-child(3) {
+          transform: scale(1.1) rotateZ(270deg);
+        }
+        .loader-cube:nth-child(2):before {
+          animation-delay: 0.${Math.floor(speed*10)}s;
+        }
+        .loader-cube:nth-child(4):before {
+          animation-delay: 0.${Math.floor(speed*20)}s;
+        }
+        .loader-cube:nth-child(3):before {
+          animation-delay: 0.${Math.floor(speed*30)}s;
+        }
+        @keyframes foldCube {
+          0%, 10% {
+            transform: perspective(140px) rotateX(-180deg);
+            opacity: 0;
+          }
+          25%, 75% {
+            transform: perspective(140px) rotateX(0deg);
+            opacity: 1;
+          }
+          90%, 100% {
+            transform: perspective(140px) rotateY(180deg);
+            opacity: 0;
+          }
+        }
+      `;
+      html = '<div class="loader"><div class="loader-cube"></div><div class="loader-cube"></div><div class="loader-cube"></div><div class="loader-cube"></div></div>';
+      break;
+      
+    case 'squircle':
+      css = `
+        .loader {
+          width: ${sizeValue};
+          height: ${sizeValue};
+          background-color: ${color};
+          border-radius: 30%;
+          animation: squircleRotate ${animationSpeed} infinite cubic-bezier(0.4, 0.0, 0.2, 1);
+        }
+        @keyframes squircleRotate {
+          0% { transform: rotate(0deg); border-radius: 30%; }
+          50% { transform: rotate(180deg); border-radius: 50%; }
+          100% { transform: rotate(360deg); border-radius: 30%; }
+        }
+      `;
+      html = '<div class="loader"></div>';
+      break;
+      
+    default:
+      // Default spinner
+      css = `
+        .loader {
+          border: ${thicknessVal} solid #f3f3f3;
+          border-top: ${thicknessVal} solid ${color};
+          border-radius: 50%;
+          width: ${sizeValue};
+          height: ${sizeValue};
+          animation: spin ${animationSpeed} linear infinite;
+        }
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `;
+      html = '<div class="loader"></div>';
+  }
 
-  return styles[type] || styles.spinner;
+  return { css, html };
 };
+
+// Helper to convert HEX to RGB
+function hexToRgb(hex) {
+  // Remove # if present
+  hex = hex.replace(/^#/, '');
+  
+  // Parse hex values
+  let r, g, b;
+  if (hex.length === 3) {
+    r = parseInt(hex.charAt(0) + hex.charAt(0), 16);
+    g = parseInt(hex.charAt(1) + hex.charAt(1), 16);
+    b = parseInt(hex.charAt(2) + hex.charAt(2), 16);
+  } else {
+    r = parseInt(hex.substring(0, 2), 16);
+    g = parseInt(hex.substring(2, 4), 16);
+    b = parseInt(hex.substring(4, 6), 16);
+  }
+  
+  return `${r}, ${g}, ${b}`;
+}
 
 // Helper function to generate HTML for different loader types
 const generateLoaderHTML = (type) => {
@@ -316,8 +645,7 @@ router.post("/generate", [body("type").isIn(["spinner", "dots", "bars", "circles
   try {
     const { type, size, speed, color, thickness, strokeWidth = 4, radius = 50, backgroundColor = "transparent" } = req.body;
 
-    const css = generateLoaderCSS(type, size, speed, color, thickness, strokeWidth, radius, backgroundColor);
-    const html = generateLoaderHTML(type);
+    const { css, html } = generateLoaderCSS(type, size, speed, color, thickness);
 
     res.json({
       css,
@@ -446,10 +774,12 @@ router.post("/download", [body("type").isIn(["spinner", "dots", "bars", "circles
       });
       res.setHeader("Content-Type", "image/svg+xml");
     } else if (format === "css") {
-      content = generateLoaderCSS(type, size, speed, color, thickness, strokeWidth, radius, backgroundColor);
+      const { css } = generateLoaderCSS(type, size, speed, color, thickness);
+      content = css;
       res.setHeader("Content-Type", "text/css");
     } else {
-      content = generateLoaderHTML(type);
+      const { html } = generateLoaderCSS(type, size, speed, color, thickness);
+      content = html;
       res.setHeader("Content-Type", "text/html");
     }
 
