@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { AppBar, Box, CssBaseline, IconButton, Toolbar, Typography, useTheme, Menu, MenuItem, Button, useMediaQuery, Drawer, List, ListItem, ListItemIcon, ListItemText, ListItemButton } from "@mui/material";
-import { Menu as MenuIcon, TextFields, Image, PictureAsPdf, Code, Folder, Movie, Language, DataObject, Security, Home } from "@mui/icons-material";
+import { Menu as MenuIcon, TextFields, Image, PictureAsPdf, Code, Folder, Movie, Language, DataObject, Security, Home, AutoAwesome } from "@mui/icons-material";
 
 const DRAWER_WIDTH = 240;
 
@@ -11,24 +11,24 @@ const menuItems = [
   { text: "Media Tools", icon: <Movie />, path: "/media-tools" },
   { text: "Image Tools", icon: <Image />, path: "/image-tools" },
   { text: "Text Tools", icon: <TextFields />, path: "/text-tools" },
-  { text: "Developer Tools", icon: <Code />, path: "/developer-tools" },
   { text: "File Tools", icon: <Folder />, path: "/file-tools" },
   { text: "Web Tools", icon: <Language />, path: "/web-tools" },
   { text: "Data Tools", icon: <DataObject />, path: "/data-tools" },
-  { text: "Privacy Tools", icon: <Security />, path: "/privacy-tools" }
+  { text: "Privacy Tools", icon: <Security />, path: "/privacy-tools" },
+  { text: "Loader Tools", icon: <AutoAwesome />, path: "/loader-tools" },
 ];
 
 function Layout({ children }) {
-    const [mobileOpen, setMobileOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [mobileMenuAnchor, setMobileMenuAnchor] = useState(null);
-    const theme = useTheme();
-    const navigate = useNavigate();
+  const theme = useTheme();
+  const navigate = useNavigate();
   const location = useLocation();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 
-    const handleDrawerToggle = () => {
-        setMobileOpen(!mobileOpen);
-    };
+  const handleDrawerToggle = () => {
+    setMobileOpen(!mobileOpen);
+  };
 
   const handleMobileMenuOpen = (event) => {
     setMobileMenuAnchor(event.currentTarget);
@@ -53,7 +53,7 @@ function Layout({ children }) {
     return location.pathname.startsWith(path);
   };
 
-    const drawer = (
+  const drawer = (
     <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
       <Box
         sx={{
@@ -83,12 +83,12 @@ function Layout({ children }) {
           }}
         >
           All Web Tool
-                </Typography>
+        </Typography>
       </Box>
       <List sx={{ flexGrow: 1 }}>
-                {menuItems.map((item) => (
-                    <ListItem
-                        key={item.text}
+        {menuItems.map((item) => (
+          <ListItem
+            key={item.text}
             disablePadding
             sx={{
               mb: 0.5,
@@ -148,95 +148,86 @@ function Layout({ children }) {
                 }}
               />
             </ListItemButton>
-                    </ListItem>
-                ))}
-            </List>
+          </ListItem>
+        ))}
+      </List>
     </Box>
-    );
+  );
 
-    return (
+  return (
     <Box sx={{ display: "flex", minHeight: "100vh" }}>
-            <CssBaseline />
+      <CssBaseline />
       {isMobile && (
-            <AppBar
-                position="fixed"
-                sx={{
+        <AppBar
+          position="fixed"
+          sx={{
             width: { md: `calc(100% - ${DRAWER_WIDTH}px)` },
             ml: { md: `${DRAWER_WIDTH}px` },
             bgcolor: "background.paper",
             borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
-                }}
-            >
-                <Toolbar>
-                    <IconButton
-                        color="inherit"
-                        aria-label="open drawer"
-                        edge="start"
-                        onClick={handleDrawerToggle}
-              sx={{ mr: 2, display: { md: "none" } }}
-                    >
-                        <MenuIcon />
-                    </IconButton>
+          }}
+        >
+          <Toolbar>
+            <IconButton color="inherit" aria-label="open drawer" edge="start" onClick={handleDrawerToggle} sx={{ mr: 2, display: { md: "none" } }}>
+              <MenuIcon />
+            </IconButton>
             <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
-              {menuItems.find(item => item.path === location.pathname)?.text || 'Home'}
-                    </Typography>
-                </Toolbar>
-            </AppBar>
+              {menuItems.find((item) => item.path === location.pathname)?.text || "Home"}
+            </Typography>
+          </Toolbar>
+        </AppBar>
       )}
 
-            <Box
-                component="nav"
-        sx={{ width: { md: DRAWER_WIDTH }, flexShrink: { md: 0 } }}
-            >
-                <Drawer
-                    variant="temporary"
-                    open={mobileOpen}
-                    onClose={handleDrawerToggle}
-                    ModalProps={{
+      <Box component="nav" sx={{ width: { md: DRAWER_WIDTH }, flexShrink: { md: 0 } }}>
+        <Drawer
+          variant="temporary"
+          open={mobileOpen}
+          onClose={handleDrawerToggle}
+          ModalProps={{
             keepMounted: true,
-                    }}
-                    sx={{
+          }}
+          sx={{
             display: { xs: "block", md: "none" },
             "& .MuiDrawer-paper": {
               boxSizing: "border-box",
               width: DRAWER_WIDTH,
               bgcolor: "background.paper",
               borderRight: "1px solid rgba(255, 255, 255, 0.1)",
-                        },
-                    }}
-                >
-                    {drawer}
-                </Drawer>
-                <Drawer
-                    variant="permanent"
-                    sx={{
+            },
+          }}
+        >
+          {drawer}
+        </Drawer>
+        <Drawer
+          variant="permanent"
+          sx={{
             display: { xs: "none", md: "block" },
             "& .MuiDrawer-paper": {
               boxSizing: "border-box",
               width: DRAWER_WIDTH,
               bgcolor: "background.paper",
               borderRight: "1px solid rgba(255, 255, 255, 0.1)",
-                        },
-                    }}
-                    open
-                >
-                    {drawer}
-                </Drawer>
-            </Box>
+            },
+          }}
+          open
+        >
+          {drawer}
+        </Drawer>
+      </Box>
 
-            <Box
-                component="main"
-                sx={{
-                    flexGrow: 1,
-                    p: 3,
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          p: 3,
           width: { md: `calc(100% - ${DRAWER_WIDTH}px)` },
           mt: isMobile ? "64px" : 0,
-                }}
-            >
-                {children}
-            </Box>
-        </Box>
-    );
+        }}
+      >
+        {children}
+      </Box>
+    </Box>
+  );
 }
 
-export default Layout; 
+export default Layout;

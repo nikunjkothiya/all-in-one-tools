@@ -1,176 +1,189 @@
 import express from 'express';
-import { body } from 'express-validator';
+import { body, validationResult } from 'express-validator';
+import prettier from 'prettier';
+import htmlMinifier from 'html-minifier';
+import { minify as jsMinify } from 'terser';
 
 const router = express.Router();
 
 // Format code endpoint
 router.post(
-    '/format',
-    [
-        body('code').notEmpty().withMessage('Code is required'),
-        body('format').isIn(['json', 'html']).withMessage('Invalid format type'),
-    ],
-    (req, res) => {
-        try {
-            const { code, format } = req.body;
-
-            if (format === 'json') {
-                const parsed = JSON.parse(code);
-                const formatted = JSON.stringify(parsed, null, 2);
-                res.json({ formatted });
-            } else if (format === 'html') {
-                // Simple HTML formatting (in a real implementation, you would use a proper HTML formatter)
-                const formatted = code.replace(/></g, '>\n<').replace(/<([^>]+)>/g, '  <$1>');
-                res.json({ formatted });
-            }
-        } catch (error) {
-            res.status(400).json({ error: 'Invalid code format' });
-        }
+  '/format',
+  [
+    body('code').notEmpty().withMessage('Code is required'),
+    body('format').isIn(['json', 'html', 'css', 'js']).withMessage('Invalid format')
+  ],
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
     }
+
+    try {
+      const { code, format } = req.body;
+      let formatted = '';
+      
+      switch (format) {
+        case 'json':
+          try {
+            // Parse and stringify JSON with formatting
+            const parsedJson = JSON.parse(code);
+            formatted = JSON.stringify(parsedJson, null, 2);
+          } catch (error) {
+            return res.status(400).json({ error: 'Invalid JSON' });
+          }
+          break;
+        
+        case 'html':
+          // Use prettier to format HTML
+          formatted = prettier.format(code, { parser: 'html' });
+          break;
+        
+        case 'css':
+          // Use prettier to format CSS
+          formatted = prettier.format(code, { parser: 'css' });
+          break;
+        
+        case 'js':
+          // Use prettier to format JavaScript
+          formatted = prettier.format(code, { parser: 'babel' });
+          break;
+        
+        default:
+          return res.status(400).json({ error: 'Unsupported format' });
+      }
+      
+      res.json({ formatted });
+    } catch (error) {
+      res.status(500).json({ error: error.message || 'Failed to format code' });
+    }
+  }
 );
 
 // Minify code endpoint
 router.post(
-    '/minify',
-    [
-        body('code').notEmpty().withMessage('Code is required'),
-        body('format').isIn(['json', 'html']).withMessage('Invalid format type'),
-    ],
-    (req, res) => {
-        try {
-            const { code, format } = req.body;
-
-            if (format === 'json') {
-                const parsed = JSON.parse(code);
-                const minified = JSON.stringify(parsed);
-                res.json({ minified });
-            } else if (format === 'html') {
-                // Simple HTML minification (in a real implementation, you would use a proper HTML minifier)
-                const minified = code.replace(/\s+/g, ' ').trim();
-                res.json({ minified });
-            }
-        } catch (error) {
-            res.status(400).json({ error: 'Invalid code format' });
-        }
+  '/minify',
+  [
+    body('code').notEmpty().withMessage('Code is required'),
+    body('format').isIn(['json', 'html', 'css', 'js']).withMessage('Invalid format')
+  ],
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
     }
+
+    try {
+      const { code, format } = req.body;
+      let minified = '';
+      
+      switch (format) {
+        case 'json':
+          try {
+            // Parse and stringify JSON without formatting
+            const parsedJson = JSON.parse(code);
+            minified = JSON.stringify(parsedJson);
+          } catch (error) {
+            return res.status(400).json({ error: 'Invalid JSON' });
+          }
+          break;
+        
+        case 'html':
+          // Use html-minifier to minify HTML
+          minified = htmlMinifier.minify(code, {
+            collapseWhitespace: true,
+            removeComments: true,
+            minifyCSS: true,
+            minifyJS: true
+          });
+          break;
+        
+        case 'css':
+          // Use clean-css to minify CSS
+          const CleanCSS = require('clean-css');
+          const cleanCSS = new CleanCSS();
+          const cssResult = cleanCSS.minify(code);
+          minified = cssResult.styles;
+          break;
+        
+        case 'js':
+          // Use terser to minify JavaScript
+          const result = await jsMinify(code);
+          minified = result.code;
+          break;
+        
+        default:
+          return res.status(400).json({ error: 'Unsupported format' });
+      }
+      
+      res.json({ minified });
+    } catch (error) {
+      res.status(500).json({ error: error.message || 'Failed to minify code' });
+    }
+  }
 );
 
 // Validate code endpoint
 router.post(
-    '/validate',
-    [
-        body('code').notEmpty().withMessage('Code is required'),
-        body('format').isIn(['json', 'html']).withMessage('Invalid format type'),
-    ],
-    (req, res) => {
-        try {
-            const { code, format } = req.body;
-
-            if (format === 'json') {
-                JSON.parse(code);
-                res.json({ valid: true });
-            } else if (format === 'html') {
-                // Simple HTML validation (in a real implementation, you would use a proper HTML validator)
-                const hasOpeningAndClosingTags = /<[^>]+>.*<\/[^>]+>/.test(code);
-                res.json({ valid: hasOpeningAndClosingTags });
-            }
-        } catch (error) {
-            res.status(400).json({ valid: false, error: 'Invalid code format' });
-        }
+  '/validate',
+  [
+    body('code').notEmpty().withMessage('Code is required'),
+    body('format').isIn(['json', 'html', 'css', 'js']).withMessage('Invalid format')
+  ],
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
     }
-);
 
-// Base64 encoder endpoint
-router.post(
-    '/encode-base64',
-    [body('text').notEmpty().withMessage('Text is required')],
-    (req, res) => {
-        try {
-            const { text } = req.body;
-            const encoded = Buffer.from(text).toString('base64');
-            res.json({ encoded });
-        } catch (error) {
-            res.status(500).json({ error: error.message });
-        }
+    try {
+      const { code, format } = req.body;
+      let valid = false;
+      let message = '';
+      
+      switch (format) {
+        case 'json':
+          try {
+            JSON.parse(code);
+            valid = true;
+          } catch (error) {
+            message = error.message;
+          }
+          break;
+        
+        case 'html':
+          // Simple HTML validation (more comprehensive validation would require a full HTML parser)
+          valid = code.includes('<') && code.includes('>');
+          if (!valid) {
+            message = 'HTML must contain tags';
+          }
+          break;
+        
+        case 'css':
+          // Basic CSS validation would require a CSS parser like csstree
+          valid = true;
+          break;
+        
+        case 'js':
+          try {
+            // Use Esprima to validate JavaScript
+            const esprima = require('esprima');
+            esprima.parseScript(code);
+            valid = true;
+          } catch (error) {
+            message = error.message;
+          }
+          break;
+        
+        default:
+          return res.status(400).json({ error: 'Unsupported format' });
+      }
+      
+      res.json({ valid, message });
+    } catch (error) {
+      res.status(500).json({ error: error.message || 'Failed to validate code' });
     }
-);
-
-// Base64 decoder endpoint
-router.post(
-    '/decode-base64',
-    [body('text').notEmpty().withMessage('Base64 string is required')],
-    (req, res) => {
-        try {
-            const { text } = req.body;
-            const decoded = Buffer.from(text, 'base64').toString('utf-8');
-            res.json({ decoded });
-        } catch (error) {
-            res.status(400).json({ error: 'Invalid Base64 string' });
-        }
-    }
-);
-
-// URL parser endpoint
-router.post(
-    '/parse-url',
-    [body('url').notEmpty().withMessage('URL is required').isURL().withMessage('Invalid URL')],
-    (req, res) => {
-        try {
-            const { url } = req.body;
-            const parsedUrl = new URL(url);
-            res.json({
-                protocol: parsedUrl.protocol,
-                hostname: parsedUrl.hostname,
-                port: parsedUrl.port,
-                pathname: parsedUrl.pathname,
-                search: parsedUrl.search,
-                hash: parsedUrl.hash,
-                username: parsedUrl.username,
-                password: parsedUrl.password,
-                origin: parsedUrl.origin,
-                searchParams: Object.fromEntries(parsedUrl.searchParams),
-            });
-        } catch (error) {
-            res.status(400).json({ error: 'Invalid URL' });
-        }
-    }
-);
-
-// HTTP header analyzer endpoint
-router.post(
-    '/analyze-headers',
-    [body('url').notEmpty().withMessage('URL is required').isURL().withMessage('Invalid URL')],
-    async (req, res) => {
-        try {
-            const { url } = req.body;
-            const response = await fetch(url);
-            const headers = Object.fromEntries(response.headers.entries());
-
-            // Analyze security headers
-            const securityHeaders = {
-                'Content-Security-Policy': headers['content-security-policy'],
-                'X-Frame-Options': headers['x-frame-options'],
-                'X-Content-Type-Options': headers['x-content-type-options'],
-                'Strict-Transport-Security': headers['strict-transport-security'],
-                'X-XSS-Protection': headers['x-xss-protection'],
-            };
-
-            // Analyze caching headers
-            const cachingHeaders = {
-                'Cache-Control': headers['cache-control'],
-                'ETag': headers['etag'],
-                'Last-Modified': headers['last-modified'],
-            };
-
-            res.json({
-                securityHeaders,
-                cachingHeaders,
-                allHeaders: headers,
-            });
-        } catch (error) {
-            res.status(500).json({ error: error.message });
-        }
-    }
+  }
 );
 
 export default router; 

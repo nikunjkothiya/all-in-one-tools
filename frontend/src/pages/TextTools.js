@@ -493,7 +493,7 @@ function example() {
     const newType = e.target.value;
     setLoremType(newType);
     setCustomCount(newType === "paragraphs" ? 1 : 100);
-  };
+    };
 
     return (
         <Container maxWidth="lg">
@@ -1350,7 +1350,7 @@ function PatternExplanation({ pattern, parts }) {
         </>
       )}
     </Box>
-  );
+    );
 }
 
 export default TextTools; 

@@ -11,12 +11,12 @@ import Home from "./pages/Home";
 import TextTools from "./pages/TextTools";
 import ImageTools from "./pages/ImageTools";
 import PDFTools from "./pages/PDFTools";
-import DeveloperTools from "./pages/DeveloperTools";
 import FileTools from "./pages/FileTools";
 import MediaTools from "./pages/MediaTools";
 import WebTools from "./pages/WebTools";
 import DataTools from "./pages/DataTools";
 import PrivacyTools from "./pages/PrivacyTools";
+import LoaderTools from "./pages/LoaderTools";
 
 // Create theme
 const theme = createTheme({
@@ -102,12 +102,12 @@ function App() {
             <Route path="/text-tools" element={<TextTools />} />
             <Route path="/image-tools" element={<ImageTools />} />
             <Route path="/pdf-tools" element={<PDFTools />} />
-            <Route path="/developer-tools" element={<DeveloperTools />} />
             <Route path="/file-tools" element={<FileTools />} />
             <Route path="/media-tools" element={<MediaTools />} />
             <Route path="/web-tools" element={<WebTools />} />
             <Route path="/data-tools" element={<DataTools />} />
             <Route path="/privacy-tools" element={<PrivacyTools />} />
+            <Route path="/loader-tools" element={<LoaderTools />} />
           </Routes>
         </Layout>
       </Router>

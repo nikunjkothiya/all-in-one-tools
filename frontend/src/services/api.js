@@ -150,15 +150,6 @@ export const pdfToolsApi = {
   },
 };
 
-// Developer Tools API
-export const developerToolsApi = {
-  formatJson: (json) => api.post("/developer/format-json", { json }),
-  encodeBase64: (text) => api.post("/developer/encode-base64", { text }),
-  decodeBase64: (text) => api.post("/developer/decode-base64", { text }),
-  parseUrl: (url) => api.post("/developer/parse-url", { url }),
-  analyzeHeaders: (url) => api.post("/developer/analyze-headers", { url }),
-};
-
 // File Tools API
 export const fileToolsApi = {
   convertFile: (formData, targetFormat) =>
@@ -257,6 +248,23 @@ export const privacyToolsApi = {
   hashPassword: (password, algorithm) => api.post("/privacy/hash", { password, algorithm }),
   encryptText: (text, algorithm, key) => api.post("/privacy/encrypt", { text, algorithm, key }),
   decryptText: (text, key, algorithm, iv) => api.post("/privacy/decrypt", { text, key, algorithm, iv }),
+};
+
+// Loader Tools API
+export const loaderToolsApi = {
+  generateLoader: (options) => api.post("/loader/generate", options),
+  downloadLoader: (options) =>
+    api.post("/loader/download", options, {
+      responseType: "blob",
+    }),
+  downloadAsSVG: (options) =>
+    api.post("/loader/downloadAsSVG", options, {
+      responseType: "blob",
+    }),
+  convertToGif: (options) =>
+    api.post("/loader/convertToGif", options, {
+      responseType: "blob",
+    }),
 };
 
 export default api;

@@ -13,6 +13,7 @@ import mediaRoutes from "./routes/media.routes.js";
 import webRoutes from "./routes/web.routes.js";
 import dataRoutes from "./routes/data.routes.js";
 import privacyRoutes from "./routes/privacy.routes.js";
+import loaderRoutes from "./routes/loader.routes.js";
 import path from "path";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
@@ -62,6 +63,7 @@ app.use("/api/media", mediaRoutes);
 app.use("/api/web", webRoutes);
 app.use("/api/data", dataRoutes);
 app.use("/api/privacy", privacyRoutes);
+app.use("/api/loader", loaderRoutes);
 
 // Health check endpoint
 app.get("/api/health", (req, res) => {

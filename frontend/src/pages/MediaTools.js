@@ -35,7 +35,7 @@ const MediaTools = () => {
     videoCodec: "mpeg2video",
     resolution: "1280x720",
     startTime: "00:00:00",
-    duration: "00:00:00",
+    endTime: "00:00:10",
     speed: 1.0,
   });
 
@@ -182,7 +182,7 @@ const MediaTools = () => {
       const formData = new FormData();
       formData.append("file", selectedFile);
       formData.append("startTime", settings.startTime);
-      formData.append("duration", settings.duration);
+      formData.append("endTime", settings.endTime);
 
       // Generate a unique processing ID for progress tracking
       const newProcessingId = Date.now().toString();
@@ -366,7 +366,7 @@ const MediaTools = () => {
                 <Stack spacing={2}>
                   <Stack direction="row" spacing={2}>
                     <TextField fullWidth label="Start Time" value={settings.startTime} onChange={(e) => handleSettingChange("startTime", e.target.value)} placeholder="HH:MM:SS" />
-                    <TextField fullWidth label="Duration" value={settings.duration} onChange={(e) => handleSettingChange("duration", e.target.value)} placeholder="HH:MM:SS" />
+                    <TextField fullWidth label="End Time" value={settings.endTime} onChange={(e) => handleSettingChange("endTime", e.target.value)} placeholder="HH:MM:SS" />
                   </Stack>
 
                   <Button variant="contained" onClick={handleTrim} disabled={!selectedFile || loading} startIcon={<ContentCut />} fullWidth>

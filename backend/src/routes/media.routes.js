@@ -1,6 +1,6 @@
 import express from "express";
 import multer from "multer";
-import { body } from "express-validator";
+import { body, validationResult } from "express-validator";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
@@ -258,146 +258,185 @@ router.post("/compress", upload.single("file"), [body("quality").isInt({ min: 1,
 });
 
 // Media trim endpoint
-router.post(
-  "/trim",
-  upload.single("file"),
-  [
-    body("startTime")
-      .matches(/^\d{2}:\d{2}:\d{2}$/)
-      .withMessage("Invalid start time format"),
-    body("duration")
-      .matches(/^\d{2}:\d{2}:\d{2}$/)
-      .withMessage("Invalid duration format"),
-  ],
-  async (req, res) => {
-    const tempFiles = [];
-    try {
-      if (!req.file) {
-        return res.status(400).json({ error: "No media file provided" });
-      }
+router.post("/trim", upload.single("file"), [body("startTime").notEmpty().withMessage("Start time is required"), body("endTime").notEmpty().withMessage("End time is required"), body("processingId").notEmpty().withMessage("Processing ID is required")], async (req, res) => {
+  const tempFiles = [];
 
-      const { startTime, duration, processingId } = req.body;
-      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-      const inputPath = path.join(uploadsDir, `temp_${timestamp}_${req.file.originalname}`);
-      const outputPath = path.join(uploadsDir, `trimmed_${timestamp}_${req.file.originalname}`);
-
-      tempFiles.push(inputPath, outputPath);
-      await fs.promises.writeFile(inputPath, req.file.buffer);
-
-      const startSeconds = parseTimeToSeconds(startTime);
-      const durationSeconds = parseTimeToSeconds(duration);
-
-      // Get video duration using ffprobe
-      const getDuration = () => {
-        return new Promise((resolve, reject) => {
-          ffmpeg.ffprobe(inputPath, (err, metadata) => {
-            if (err) reject(err);
-            resolve(metadata.format.duration);
-          });
-        });
-      };
-
-      const totalDuration = await getDuration();
-      const trimDuration = durationSeconds;
-      const progressMultiplier = (trimDuration / totalDuration) * 100;
-
-      await new Promise((resolve, reject) => {
-        let lastProgress = 0;
-
-        ffmpeg(inputPath)
-          .setStartTime(startSeconds)
-          .setDuration(durationSeconds)
-          .on("start", (commandLine) => {
-            console.log("Started FFmpeg with command:", commandLine);
-            emitProgress(processingId, 0);
-          })
-          .on("progress", (progress) => {
-            // Calculate adjusted progress based on the trim duration
-            let adjustedProgress = progress.percent || 0;
-            if (adjustedProgress > lastProgress) {
-              lastProgress = adjustedProgress;
-              // Ensure progress doesn't exceed 100%
-              const normalizedProgress = Math.min(adjustedProgress * (100 / progressMultiplier), 100);
-              console.log("Processing:", normalizedProgress.toFixed(2), "% done");
-              emitProgress(processingId, normalizedProgress);
-            }
-          })
-          .on("error", (err) => {
-            console.error("FFmpeg error:", err);
-            reject(err);
-          })
-          .on("end", () => {
-            console.log("FFmpeg processing finished");
-            emitProgress(processingId, 100);
-            resolve();
-          })
-          .save(outputPath);
-      });
-
-      const outputBuffer = await fs.promises.readFile(outputPath);
-      const url = await saveFile(outputBuffer, `trimmed_${timestamp}_${req.file.originalname}`);
-
-      // Clean up temporary files
-      for (const file of tempFiles) {
-        try {
-          await fs.promises.unlink(file);
-        } catch (err) {
-          console.error(`Failed to delete temporary file ${file}:`, err);
-        }
-      }
-
-      res.json({ trimmed: url });
-    } catch (error) {
-      console.error("Media trim error:", error);
-      // Clean up temporary files on error
-      for (const file of tempFiles) {
-        try {
-          await fs.promises.unlink(file);
-        } catch (err) {
-          console.error(`Failed to delete temporary file ${file}:`, err);
-        }
-      }
-      res.status(500).json({
-        error: "Failed to trim media",
-        details: error.message,
-      });
-    }
-  }
-);
-
-// Media speed change endpoint
-router.post("/speed", upload.single("file"), [body("speed").isFloat({ min: 0.25, max: 4.0 }).withMessage("Speed must be between 0.25 and 4.0")], async (req, res) => {
   try {
+    // Check for validation errors
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
     if (!req.file) {
       return res.status(400).json({ error: "No media file provided" });
     }
 
-    const { speed } = req.body;
-    const inputPath = path.join(uploadsDir, `temp_${Date.now()}_${req.file.originalname}`);
-    const outputPath = path.join(uploadsDir, `speed_${Date.now()}_${req.file.originalname}`);
+    const { startTime, endTime, processingId } = req.body;
+    const timestamp = new Date().toISOString().replace(/:/g, "-");
+    const inputPath = path.join(uploadsDir, `temp_${timestamp}_${req.file.originalname}`);
+    const outputPath = path.join(uploadsDir, `trimmed_${timestamp}_${req.file.originalname}`);
+
+    tempFiles.push(inputPath, outputPath);
 
     await fs.promises.writeFile(inputPath, req.file.buffer);
+
+    // Emit initial progress
+    emitProgress(processingId, 0);
+
+    // Calculate duration for progress tracking
+    const totalDuration = Math.max(parseTimeToSeconds(endTime) - parseTimeToSeconds(startTime), 1);
+
+    await new Promise((resolve, reject) => {
+      ffmpeg(inputPath)
+        .setStartTime(startTime)
+        .setDuration(totalDuration)
+        .on("progress", (progress) => {
+          if (progress.percent) {
+            const percent = Math.min(progress.percent, 100);
+            emitProgress(processingId, percent);
+          } else if (progress.timemark) {
+            // Calculate progress based on timemark if percent is not available
+            const timeInSeconds = parseTimeToSeconds(progress.timemark);
+            const percent = Math.min((timeInSeconds / totalDuration) * 100, 100);
+            emitProgress(processingId, percent);
+          }
+        })
+        .on("end", () => {
+          console.log("Trimming finished");
+          emitProgress(processingId, 100);
+          resolve();
+        })
+        .on("error", (err) => {
+          console.error("FFmpeg error:", err);
+          reject(err);
+        })
+        .save(outputPath);
+    });
+
+    const outputBuffer = await fs.promises.readFile(outputPath);
+    const url = await saveFile(outputBuffer, `trimmed_${timestamp}_${req.file.originalname}`);
+
+    // Clean up temporary files
+    for (const file of tempFiles) {
+      try {
+        await fs.promises.unlink(file);
+      } catch (err) {
+        console.error(`Failed to delete temporary file ${file}:`, err);
+      }
+    }
+
+    res.json({ trimmed: url });
+  } catch (error) {
+    console.error("Media trim error:", error);
+
+    // Clean up temporary files on error
+    for (const file of tempFiles) {
+      try {
+        await fs.promises.unlink(file);
+      } catch (err) {
+        console.error(`Failed to delete temporary file ${file}:`, err);
+      }
+    }
+
+    res.status(500).json({
+      error: "Failed to trim media",
+      details: error.message,
+    });
+  }
+});
+
+// Media speed change endpoint
+router.post("/speed", upload.single("file"), [body("speed").isFloat({ min: 0.25, max: 4.0 }).withMessage("Speed must be between 0.25 and 4.0"), body("processingId").notEmpty().withMessage("Processing ID is required")], async (req, res) => {
+  const tempFiles = [];
+
+  try {
+    // Check for validation errors
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ error: "No media file provided" });
+    }
+
+    const { speed, processingId } = req.body;
+    const timestamp = new Date().toISOString().replace(/:/g, "-");
+    const inputPath = path.join(uploadsDir, `temp_${timestamp}_${req.file.originalname}`);
+    const outputPath = path.join(uploadsDir, `speed_${timestamp}_${req.file.originalname}`);
+
+    tempFiles.push(inputPath, outputPath);
+
+    await fs.promises.writeFile(inputPath, req.file.buffer);
+
+    // Emit initial progress
+    emitProgress(processingId, 0);
+
+    // First, get the duration of the input file for accurate progress tracking
+    const duration = await new Promise((resolve, reject) => {
+      ffmpeg.ffprobe(inputPath, (err, metadata) => {
+        if (err) return reject(err);
+        resolve(metadata.format.duration || 0);
+      });
+    });
 
     await new Promise((resolve, reject) => {
       ffmpeg(inputPath)
         .videoFilters(`setpts=${1 / speed}*PTS`)
         .audioFilters(`atempo=${speed}`)
-        .save(outputPath)
-        .on("end", resolve)
-        .on("error", reject);
+        .on("progress", (progress) => {
+          if (progress.percent) {
+            const percent = Math.min(progress.percent, 100);
+            emitProgress(processingId, percent);
+          } else if (progress.timemark && duration) {
+            // Calculate progress based on timemark if percent is not available
+            const timeInSeconds = parseTimeToSeconds(progress.timemark);
+            const percent = Math.min((timeInSeconds / duration) * 100, 100);
+            emitProgress(processingId, percent);
+          }
+        })
+        .on("end", () => {
+          console.log("Speed change processing finished");
+          emitProgress(processingId, 100);
+          resolve();
+        })
+        .on("error", (err) => {
+          console.error("FFmpeg error:", err);
+          reject(err);
+        })
+        .save(outputPath);
     });
 
     const outputBuffer = await fs.promises.readFile(outputPath);
-    const url = await saveFile(outputBuffer, `speed_${req.file.originalname}`);
+    const url = await saveFile(outputBuffer, `speed_${timestamp}_${req.file.originalname}`);
 
     // Clean up temporary files
-    await fs.promises.unlink(inputPath);
-    await fs.promises.unlink(outputPath);
+    for (const file of tempFiles) {
+      try {
+        await fs.promises.unlink(file);
+      } catch (err) {
+        console.error(`Failed to delete temporary file ${file}:`, err);
+      }
+    }
 
     res.json({ speedChanged: url });
   } catch (error) {
     console.error("Media speed change error:", error);
-    res.status(500).json({ error: "Failed to change media speed" });
+
+    // Clean up temporary files on error
+    for (const file of tempFiles) {
+      try {
+        await fs.promises.unlink(file);
+      } catch (err) {
+        console.error(`Failed to delete temporary file ${file}:`, err);
+      }
+    }
+
+    res.status(500).json({
+      error: "Failed to change media speed",
+      details: error.message,
+    });
   }
 });
 
