@@ -5,8 +5,8 @@ jspm_packages/
 bower_components/
 
 # Package lock files
-package-lock.json
-**/package-lock.json
+backend/package-lock.json
+frontend/package-lock.json
 
 # Environment variables
 .env
