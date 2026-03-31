@@ -1,15 +1,16 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Box, Container, Typography, Grid, Card, CardContent, Button, Alert, Slider, FormControl, InputLabel, Select, MenuItem, TextField, Stack, Tabs, Tab, Paper, LinearProgress, CircularProgress } from "@mui/material";
+import { Box, Container, Typography, Grid, Card, CardContent, Button, Alert, Slider, FormControl, InputLabel, Select, MenuItem, TextField, Stack, Tabs, Tab, Paper, LinearProgress } from "@mui/material";
 import { VideoSettings, Transform, ContentCut, Speed, Compress } from "@mui/icons-material";
-import { mediaToolsApi } from "../services/api";
+import { mediaToolsApi, resolveApiUrl } from "../services/api";
 import { socket } from "../services/socket";
+import ToolPageHeader from "../components/ToolPageHeader";
 
 // TabPanel component for tab content
 const TabPanel = (props) => {
   const { children, value, index, ...other } = props;
   return (
     <div role="tabpanel" hidden={value !== index} id={`media-tabpanel-${index}`} {...other}>
-      {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
+      <Box sx={{ p: 3, display: value === index ? "block" : "none" }}>{children}</Box>
     </div>
   );
 };
@@ -24,6 +25,8 @@ const MediaTools = () => {
   const [activeTab, setActiveTab] = useState(0);
   const [processingId, setProcessingId] = useState(null);
   const fileInputRef = useRef(null);
+  const previewUrlRef = useRef(null);
+  const processingIdRef = useRef(null);
 
   // Advanced settings state
   const [settings, setSettings] = useState({
@@ -39,6 +42,10 @@ const MediaTools = () => {
     speed: 1.0,
   });
 
+  useEffect(() => {
+    processingIdRef.current = processingId;
+  }, [processingId]);
+
   // Socket.IO event handling
   useEffect(() => {
     if (!socket.connected) {
@@ -46,7 +53,7 @@ const MediaTools = () => {
     }
 
     const handleProgress = (data) => {
-      if (data.id === processingId) {
+      if (data.id === processingIdRef.current) {
         setProgress(data.progress);
       }
     };
@@ -56,14 +63,32 @@ const MediaTools = () => {
     return () => {
       socket.off("processing-progress", handleProgress);
     };
-  }, [processingId]);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (previewUrlRef.current) {
+        URL.revokeObjectURL(previewUrlRef.current);
+      }
+      if (socket.connected) {
+        socket.disconnect();
+      }
+    };
+  }, []);
+
+  const parseRequestError = (err, fallback) => err.response?.data?.error || err.response?.data?.details || err.message || fallback;
 
   const handleFileSelect = (event) => {
     const file = event.target.files[0];
     if (file) {
       if (file.type.startsWith("video/") || file.type.startsWith("audio/")) {
+        if (previewUrlRef.current) {
+          URL.revokeObjectURL(previewUrlRef.current);
+        }
+        const nextPreviewUrl = URL.createObjectURL(file);
+        previewUrlRef.current = nextPreviewUrl;
         setSelectedFile(file);
-        setPreview(URL.createObjectURL(file));
+        setPreview(nextPreviewUrl);
         setError(null);
         setSuccess(null);
       } else {
@@ -80,8 +105,7 @@ const MediaTools = () => {
   };
 
   const handleDownload = (url, filename) => {
-    const baseUrl = process.env.REACT_APP_API_URL || "http://localhost:5000";
-    const fullUrl = baseUrl + url;
+    const fullUrl = resolveApiUrl(url);
 
     // Open video in new tab
     window.open(fullUrl, "_blank");
@@ -128,7 +152,7 @@ const MediaTools = () => {
       const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
       handleDownload(response.data.converted, `converted_${timestamp}.${settings.format}`);
     } catch (err) {
-      setError(err.message || "Failed to convert media");
+      setError(parseRequestError(err, "Failed to convert media"));
     } finally {
       setLoading(false);
       setProgress(0);
@@ -162,7 +186,7 @@ const MediaTools = () => {
       const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
       handleDownload(response.data.compressed, `compressed_${timestamp}_${selectedFile.name}`);
     } catch (err) {
-      setError(err.message || "Failed to compress media");
+      setError(parseRequestError(err, "Failed to compress media"));
     } finally {
       setLoading(false);
       setProgress(0);
@@ -195,7 +219,7 @@ const MediaTools = () => {
       const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
       handleDownload(response.data.trimmed, `trimmed_${timestamp}_${selectedFile.name}`);
     } catch (err) {
-      setError(err.message || "Failed to trim media");
+      setError(parseRequestError(err, "Failed to trim media"));
     } finally {
       setLoading(false);
       setProgress(0);
@@ -210,10 +234,15 @@ const MediaTools = () => {
     }
 
     setLoading(true);
+    setProgress(0);
     try {
       const formData = new FormData();
       formData.append("file", selectedFile);
       formData.append("speed", settings.speed);
+
+      const newProcessingId = Date.now().toString();
+      setProcessingId(newProcessingId);
+      formData.append("processingId", newProcessingId);
 
       const response = await mediaToolsApi.changeSpeed(formData);
       setSuccess("Media speed adjusted successfully!");
@@ -221,9 +250,11 @@ const MediaTools = () => {
       const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
       handleDownload(response.data.speedChanged, `speed_${timestamp}_${selectedFile.name}`);
     } catch (err) {
-      setError(err.message || "Failed to adjust media speed");
+      setError(parseRequestError(err, "Failed to adjust media speed"));
     } finally {
       setLoading(false);
+      setProgress(0);
+      setProcessingId(null);
     }
   };
 
@@ -244,10 +275,12 @@ const MediaTools = () => {
 
   return (
     <Container maxWidth="xl">
-      <Box sx={{ py: 1 }}>
-        <Typography variant="h5" gutterBottom sx={{ mt: 0, mb: 1 }}>
-          Media Tools
-        </Typography>
+      <Box sx={{ py: 2 }}>
+        <ToolPageHeader
+          title="Media Tools"
+          description="Convert, compress, trim, and adjust playback speed for audio and video files from a single responsive workspace."
+          chips={["Convert", "Compress", "Trim", "Speed"]}
+        />
 
         {(error || success) && (
           <Alert
@@ -277,7 +310,11 @@ const MediaTools = () => {
 
                 {preview && (
                   <Box sx={{ mt: 2 }}>
-                    <video src={preview} controls style={{ width: "100%", maxHeight: "300px" }} />
+                    {selectedFile?.type.startsWith("audio/") ? (
+                      <audio src={preview} controls style={{ width: "100%" }} />
+                    ) : (
+                      <video src={preview} controls style={{ width: "100%", maxHeight: "300px" }} />
+                    )}
                   </Box>
                 )}
               </CardContent>
@@ -286,7 +323,7 @@ const MediaTools = () => {
 
           <Grid item xs={12}>
             <Paper sx={{ width: "100%", bgcolor: "background.paper" }}>
-              <Tabs value={activeTab} onChange={handleTabChange} variant="fullWidth" indicatorColor="primary" textColor="primary">
+              <Tabs value={activeTab} onChange={handleTabChange} variant="scrollable" scrollButtons="auto" indicatorColor="primary" textColor="primary">
                 <Tab icon={<Transform />} label="Convert" />
                 <Tab icon={<Compress />} label="Compress" />
                 <Tab icon={<ContentCut />} label="Trim" />
@@ -364,7 +401,7 @@ const MediaTools = () => {
               {/* Trim Tab */}
               <TabPanel value={activeTab} index={2}>
                 <Stack spacing={2}>
-                  <Stack direction="row" spacing={2}>
+                  <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
                     <TextField fullWidth label="Start Time" value={settings.startTime} onChange={(e) => handleSettingChange("startTime", e.target.value)} placeholder="HH:MM:SS" />
                     <TextField fullWidth label="End Time" value={settings.endTime} onChange={(e) => handleSettingChange("endTime", e.target.value)} placeholder="HH:MM:SS" />
                   </Stack>

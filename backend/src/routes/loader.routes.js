@@ -1,11 +1,8 @@
 import express from "express";
 import { body, validationResult } from "express-validator";
 import gifEncoder from "gif-encoder";
-import { createCanvas } from "canvas";
-import fs from "fs";
-import path from "path";
-import { v4 as uuidv4 } from "uuid";
 import { Buffer } from "buffer";
+import sharp from "sharp";
 
 const router = express.Router();
 
@@ -684,67 +681,44 @@ router.post("/convertToGif", [body("imageData").notEmpty().withMessage("Image da
   }
 
   try {
-    const { imageData, duration } = req.body;
+    const { imageData, duration, size = 200 } = req.body;
+    const canvasSize = parseInt(size);
 
     // Extract the base64 data
     const base64Data = imageData.replace(/^data:image\/png;base64,/, "");
     const buffer = Buffer.from(base64Data, "base64");
 
-    // Create a temporary file to store the image
-    const tempId = uuidv4();
-    const tempFile = path.join(process.cwd(), "uploads", `temp_${tempId}.png`);
-    const outputFile = path.join(process.cwd(), "uploads", `output_${tempId}.gif`);
-
-    // Write the buffer to the file
-    fs.writeFileSync(tempFile, buffer);
-
     // Create a GIF encoder
-    const gif = new gifEncoder(200, 200);
-    const outputStream = fs.createWriteStream(outputFile);
+    const gif = new gifEncoder(canvasSize, canvasSize);
+    const chunks = [];
 
-    gif.pipe(outputStream);
+    gif.on("data", (chunk) => {
+      chunks.push(chunk);
+    });
     gif.setQuality(10);
     gif.setDelay(duration);
     gif.setRepeat(0);
     gif.writeHeader();
 
-    // Add frames to the GIF
-    const canvas = createCanvas(200, 200);
-    const ctx = canvas.getContext("2d");
+    // Use a single accurate frame from the submitted preview image.
+    const frameBuffer = await sharp(buffer)
+      .resize(canvasSize, canvasSize, {
+        fit: "contain",
+        background: { r: 255, g: 255, b: 255, alpha: 0 },
+      })
+      .ensureAlpha()
+      .raw()
+      .toBuffer();
 
-    // Create multiple frames for the animation
-    for (let i = 0; i < 10; i++) {
-      ctx.clearRect(0, 0, 200, 200);
-      ctx.save();
-      ctx.translate(100, 100);
-      ctx.rotate((i * Math.PI) / 5);
-      ctx.translate(-100, -100);
-
-      // Draw the image on the canvas
-      const img = new Image();
-      img.src = buffer;
-      ctx.drawImage(img, 0, 0, 200, 200);
-
-      gif.addFrame(ctx.getImageData(0, 0, 200, 200).data);
-      ctx.restore();
-    }
+    gif.addFrame(frameBuffer);
 
     gif.finish();
 
-    // Wait for the GIF to be written
-    await new Promise((resolve) => {
-      outputStream.on("finish", resolve);
-    });
-
     // Send the GIF
-    const gifData = fs.readFileSync(outputFile);
+    const gifData = Buffer.concat(chunks);
     res.setHeader("Content-Type", "image/gif");
     res.setHeader("Content-Disposition", "attachment; filename=loader.gif");
     res.send(gifData);
-
-    // Clean up temporary files
-    fs.unlinkSync(tempFile);
-    fs.unlinkSync(outputFile);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Failed to convert to GIF" });

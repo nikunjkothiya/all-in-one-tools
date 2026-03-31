@@ -3,6 +3,8 @@ import { body, validationResult } from 'express-validator';
 import prettier from 'prettier';
 import htmlMinifier from 'html-minifier';
 import { minify as jsMinify } from 'terser';
+import CleanCSS from 'clean-css';
+import * as esprima from 'esprima';
 
 const router = express.Router();
 
@@ -36,17 +38,17 @@ router.post(
         
         case 'html':
           // Use prettier to format HTML
-          formatted = prettier.format(code, { parser: 'html' });
+          formatted = await prettier.format(code, { parser: 'html' });
           break;
         
         case 'css':
           // Use prettier to format CSS
-          formatted = prettier.format(code, { parser: 'css' });
+          formatted = await prettier.format(code, { parser: 'css' });
           break;
         
         case 'js':
           // Use prettier to format JavaScript
-          formatted = prettier.format(code, { parser: 'babel' });
+          formatted = await prettier.format(code, { parser: 'babel' });
           break;
         
         default:
@@ -100,9 +102,8 @@ router.post(
         
         case 'css':
           // Use clean-css to minify CSS
-          const CleanCSS = require('clean-css');
-          const cleanCSS = new CleanCSS();
-          const cssResult = cleanCSS.minify(code);
+          const cleanCSSInstance = new CleanCSS();
+          const cssResult = cleanCSSInstance.minify(code);
           minified = cssResult.styles;
           break;
         
@@ -167,7 +168,6 @@ router.post(
         case 'js':
           try {
             // Use Esprima to validate JavaScript
-            const esprima = require('esprima');
             esprima.parseScript(code);
             valid = true;
           } catch (error) {

@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
-import { Box, Container, Typography, Grid, Card, CardContent, Button, Alert } from '@mui/material';
-import { fileToolsApi } from '../services/api';
+import { Box, Container, Typography, Grid, Card, CardContent, Button, Alert, TextField } from '@mui/material';
+import { fileToolsApi, resolveApiUrl } from '../services/api';
+import ToolPageHeader from '../components/ToolPageHeader';
 
 const FileTools = () => {
     const [selectedFile, setSelectedFile] = useState(null);
     const [error, setError] = useState(null);
     const [success, setSuccess] = useState(null);
     const [loading, setLoading] = useState(false);
+    const [password, setPassword] = useState('');
 
     const handleFileSelect = (event) => {
         const file = event.target.files[0];
@@ -17,26 +19,15 @@ const FileTools = () => {
         }
     };
 
-    const handleConvert = async (format) => {
-        if (!selectedFile) {
-            setError('Please select a file first');
-            return;
-        }
-
-        setLoading(true);
-        try {
-            const formData = new FormData();
-            formData.append('file', selectedFile);
-            formData.append('format', format);
-
-            const response = await fileToolsApi.convertFile(formData);
-            setSuccess(`File converted to ${format.toUpperCase()} successfully!`);
-            // Handle the response (e.g., download the converted file)
-        } catch (err) {
-            setError(err.message || 'Failed to convert file');
-        } finally {
-            setLoading(false);
-        }
+    const triggerDownload = (url, filename) => {
+        const fullUrl = resolveApiUrl(url);
+        const link = document.createElement('a');
+        link.href = fullUrl;
+        link.download = filename || 'download';
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
     };
 
     const handleCompress = async () => {
@@ -51,30 +42,91 @@ const FileTools = () => {
             formData.append('file', selectedFile);
 
             const response = await fileToolsApi.compressFile(formData);
-            setSuccess('File compressed successfully!');
-            // Handle the response (e.g., download the compressed file)
+            const { compressed, originalSize, compressedSize, sizeChangePercent, isCompressedSmaller } = response.data;
+            const originalSizeKb = (originalSize / 1024).toFixed(1);
+            const compressedSizeKb = (compressedSize / 1024).toFixed(1);
+            const summary = isCompressedSmaller
+                ? `File compressed. Original: ${originalSizeKb}KB -> ${compressedSizeKb}KB (${sizeChangePercent} smaller).`
+                : `File compressed, but this file grew after GZIP. Original: ${originalSizeKb}KB -> ${compressedSizeKb}KB (${sizeChangePercent} larger).`;
+
+            setSuccess(summary);
+            triggerDownload(compressed, `${selectedFile.name}.gz`);
         } catch (err) {
-            setError(err.message || 'Failed to compress file');
+            setError(err.response?.data?.error || err.message || 'Failed to compress file');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleEncrypt = async () => {
+        if (!selectedFile) {
+            setError('Please select a file first');
+            return;
+        }
+        if (!password) {
+            setError('Please enter a password for encryption');
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+            formData.append('password', password);
+
+            const response = await fileToolsApi.encryptFile(formData);
+            setSuccess('File encrypted successfully! Download starting...');
+            triggerDownload(response.data.encrypted, `${selectedFile.name}.enc`);
+        } catch (err) {
+            setError(err.response?.data?.error || err.message || 'Failed to encrypt file');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleDecrypt = async () => {
+        if (!selectedFile) {
+            setError('Please select an encrypted (.enc) file first');
+            return;
+        }
+        if (!password) {
+            setError('Please enter the password used for encryption');
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+            formData.append('password', password);
+
+            const response = await fileToolsApi.decryptFile(formData);
+            setSuccess('File decrypted successfully! Download starting...');
+            triggerDownload(response.data.decrypted, selectedFile.name.replace(/\.enc$/, ''));
+        } catch (err) {
+            setError(err.response?.data?.error || 'Decryption failed. Wrong password or corrupted file.');
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <Container maxWidth="lg">
-            <Box sx={{ my: 4 }}>
-                <Typography variant="h4" component="h1" gutterBottom>
-                    File Tools
-                </Typography>
+        <Container maxWidth="xl">
+            <Box sx={{ py: 2 }}>
+                <ToolPageHeader
+                    title="File Tools"
+                    description="Compress files with GZIP and protect them with AES-256-CBC encryption in a compact browser workflow."
+                    chips={["Compress", "Encrypt", "Decrypt"]}
+                />
 
                 {error && (
-                    <Alert severity="error" sx={{ mb: 2 }}>
+                    <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
                         {error}
                     </Alert>
                 )}
 
                 {success && (
-                    <Alert severity="success" sx={{ mb: 2 }}>
+                    <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess(null)}>
                         {success}
                     </Alert>
                 )}
@@ -97,6 +149,7 @@ const FileTools = () => {
                                         variant="contained"
                                         component="span"
                                         sx={{ mb: 2 }}
+                                        fullWidth
                                     >
                                         Select File
                                     </Button>
@@ -104,10 +157,19 @@ const FileTools = () => {
                                 {selectedFile && (
                                     <Box sx={{ mt: 2 }}>
                                         <Typography variant="body2">
-                                            Selected file: {selectedFile.name}
+                                            Selected: <strong>{selectedFile.name}</strong> ({(selectedFile.size / 1024).toFixed(1)} KB)
                                         </Typography>
                                     </Box>
                                 )}
+                                <TextField
+                                    fullWidth
+                                    label="Password (for Encrypt / Decrypt)"
+                                    type="password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    sx={{ mt: 2 }}
+                                    helperText="Required for encryption and decryption operations"
+                                />
                             </CardContent>
                         </Card>
                     </Grid>
@@ -121,24 +183,27 @@ const FileTools = () => {
                                 <Box sx={{ display: 'flex', gap: 2, flexDirection: 'column' }}>
                                     <Button
                                         variant="contained"
-                                        onClick={() => handleConvert('pdf')}
-                                        disabled={!selectedFile || loading}
-                                    >
-                                        Convert to PDF
-                                    </Button>
-                                    <Button
-                                        variant="contained"
-                                        onClick={() => handleConvert('docx')}
-                                        disabled={!selectedFile || loading}
-                                    >
-                                        Convert to DOCX
-                                    </Button>
-                                    <Button
-                                        variant="contained"
                                         onClick={handleCompress}
                                         disabled={!selectedFile || loading}
+                                        color="primary"
                                     >
-                                        Compress File
+                                        {loading ? 'Processing...' : 'Compress File (GZIP)'}
+                                    </Button>
+                                    <Button
+                                        variant="contained"
+                                        onClick={handleEncrypt}
+                                        disabled={!selectedFile || !password || loading}
+                                        color="secondary"
+                                    >
+                                        {loading ? 'Processing...' : 'Encrypt File (AES-256)'}
+                                    </Button>
+                                    <Button
+                                        variant="outlined"
+                                        onClick={handleDecrypt}
+                                        disabled={!selectedFile || !password || loading}
+                                        color="secondary"
+                                    >
+                                        {loading ? 'Processing...' : 'Decrypt File'}
                                     </Button>
                                 </Box>
                             </CardContent>
@@ -150,4 +215,4 @@ const FileTools = () => {
     );
 };
 
-export default FileTools; 
+export default FileTools;

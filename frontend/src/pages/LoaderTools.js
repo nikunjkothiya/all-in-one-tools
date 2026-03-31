@@ -1,12 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Box, Container, Grid, Card, CardContent, Typography, Slider, TextField, Button, Select, MenuItem, FormControl, InputLabel, Tabs, Tab, IconButton, Tooltip, CircularProgress, Switch, FormControlLabel, Paper, Stack, ButtonGroup, Divider, Accordion, AccordionSummary, AccordionDetails, useTheme } from "@mui/material";
-import { Download, FileDownload, ColorLens, Save, Edit, Image, Settings, ExpandMore, Remove, Add } from "@mui/icons-material";
+import { Alert, Box, Container, Grid, Typography, Slider, TextField, Button, IconButton, CircularProgress, Switch, FormControlLabel, Paper, ButtonGroup, Divider, useTheme, useMediaQuery } from "@mui/material";
+import { Remove, Add } from "@mui/icons-material";
 import { loaderToolsApi } from "../services/api";
 import html2canvas from "html2canvas";
 import { saveAs } from "file-saver";
-import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { atomDark } from "react-syntax-highlighter/dist/esm/styles/prism";
-import { enqueueSnackbar } from "notistack";
+import ToolPageHeader from "../components/ToolPageHeader";
 
 // Loader types with their specific options
 const loaderTypes = [
@@ -282,33 +280,39 @@ const loaderTypes = [
   },
 ];
 
-// Sample preset loaders
-const presetLoaders = [
-  { id: "spinner1", type: "spinner", color: "#4deeea", size: 50, speed: 1, thickness: 3 },
-  { id: "pie1", type: "pie", colors: ["#e15b64", "#f47e60", "#f8b26a", "#abbd81"], size: 50, speed: 1 },
-  { id: "dots1", type: "dots", color: "#ffe700", size: 50, speed: 1, thickness: 3 },
-  { id: "bars1", type: "bars", colors: ["#f000ff", "#f47e60", "#f8b26a", "#abbd81"], size: 50, speed: 1 },
-  { id: "circles1", type: "circles", color: "#001eff", size: 50, speed: 1, thickness: 3 },
-  { id: "dual-ring1", type: "dual-ring", color: "#ff0000", size: 50, speed: 1 },
-  { id: "wave1", type: "wave", colors: ["#FF5722", "#FF9800", "#FFC107", "#FFEB3B"], size: 60, speed: 0.8 },
-  { id: "pulse1", type: "pulse", color: "#9C27B0", size: 50, speed: 1.2 },
-  { id: "cube1", type: "cube", color: "#3F51B5", size: 60, speed: 0.7 },
-  { id: "square1", type: "square", color: "#2196F3", size: 50, speed: 1.5 },
-  { id: "roller1", type: "roller", colors: ["#00BCD4", "#4CAF50", "#8BC34A", "#CDDC39"], size: 60, speed: 1 },
-  { id: "clock1", type: "clock", color: "#E91E63", size: 55, speed: 1, thickness: 3 },
-  { id: "dot-spin1", type: "dot-spin", color: "#673AB7", size: 55, speed: 0.9 },
-  { id: "folding-cube1", type: "folding-cube", color: "#009688", size: 50, speed: 0.8 },
-  { id: "squircle1", type: "squircle", color: "#FF4081", size: 45, speed: 1.2 },
-];
+const loaderExportAnimationStyles = `
+  @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  @keyframes rotate { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  @keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
+  @keyframes stretch { 0%, 40%, 100% { transform: scaleY(0.4); } 20% { transform: scaleY(1); } }
+  @keyframes ripple { 0% { transform: scale(0); opacity: 1; } 100% { transform: scale(1); opacity: 0; } }
+  @keyframes dual-ring { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  @keyframes grid {
+    0%, 100% { transform: translate(1px, 1px); }
+    12.5% { transform: translate(30px, 1px); }
+    25% { transform: translate(60px, 1px); }
+    37.5% { transform: translate(60px, 30px); }
+    50% { transform: translate(60px, 60px); }
+    62.5% { transform: translate(30px, 60px); }
+    75% { transform: translate(1px, 60px); }
+    87.5% { transform: translate(1px, 30px); }
+  }
+  @keyframes hourglass-top { 0% { transform: rotate(0); } 50% { transform: rotate(180deg); } 100% { transform: rotate(180deg); } }
+  @keyframes hourglass-bottom { 0% { transform: rotate(0); } 50% { transform: rotate(0); } 100% { transform: rotate(180deg); } }
+  @keyframes ellipsis { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
+  @keyframes hearts { 0% { transform: scale(0.8) rotate(45deg); opacity: 0.8; } 50% { transform: scale(1.2) rotate(45deg); opacity: 1; } 100% { transform: scale(0.8) rotate(45deg); opacity: 0.8; } }
+`;
 
 const LoaderTools = () => {
   const previewRef = useRef(null);
+  const successTimeoutRef = useRef(null);
   const [selectedType, setSelectedType] = useState("spinner");
   const [activeTab, setActiveTab] = useState("default");
   const [backgroundColor, setBackgroundColor] = useState("#ffffff");
   const [isTransparent, setIsTransparent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+  const [downloadError, setDownloadError] = useState("");
 
   // Options
   const [colors, setColors] = useState(["#e15b64", "#f47e60", "#f8b26a", "#abbd81"]);
@@ -319,19 +323,7 @@ const LoaderTools = () => {
   const [thickness, setThickness] = useState(4);
 
   const theme = useTheme();
-
-  const [loader, setLoader] = useState({
-    type: "spinner",
-    size: 50,
-    speed: 1.2,
-    color: "#3f51b5",
-    thickness: 4,
-  });
-
-  const [cssCode, setCssCode] = useState("");
-  const [htmlCode, setHtmlCode] = useState("");
-  const [showCode, setShowCode] = useState(false);
-
+  const isSmallScreen = useMediaQuery(theme.breakpoints.down("sm"));
   // Find the current loader type
   const currentLoader = loaderTypes.find((type) => type.id === selectedType) || loaderTypes[0];
 
@@ -498,14 +490,22 @@ const LoaderTools = () => {
     // Set default options when loader type changes
     const loader = loaderTypes.find((l) => l.id === selectedType);
     if (loader) {
-      setColors(loader.defaultOptions.colors);
-      setSpeed(loader.defaultOptions.speed);
-      setSize(loader.defaultOptions.size);
-      setScale(loader.defaultOptions.scale);
-      setOpacity(loader.defaultOptions.opacity);
-      setThickness(loader.defaultOptions.thickness);
+      setColors(loader.defaultOptions.colors ?? ["#e15b64"]);
+      setSpeed(loader.defaultOptions.speed ?? 0.8);
+      setSize(loader.defaultOptions.size ?? 100);
+      setScale(loader.defaultOptions.scale ?? 1.0);
+      setOpacity(loader.defaultOptions.opacity ?? 0.8);
+      setThickness(loader.defaultOptions.thickness ?? 4);
     }
   }, [selectedType]);
+
+  useEffect(() => {
+    return () => {
+      if (successTimeoutRef.current) {
+        window.clearTimeout(successTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Add CSS animations to head for the preview
   useEffect(() => {
@@ -568,6 +568,7 @@ const LoaderTools = () => {
   }, []);
 
   const handleTypeChange = (type) => {
+    setDownloadError("");
     setSelectedType(type);
   };
 
@@ -589,14 +590,6 @@ const LoaderTools = () => {
     setSize(newValue);
   };
 
-  const handleScaleChange = (newValue) => {
-    setScale(newValue);
-  };
-
-  const handleOpacityChange = (newValue) => {
-    setOpacity(newValue);
-  };
-
   const handleThicknessChange = (newValue) => {
     setThickness(newValue);
   };
@@ -609,173 +602,75 @@ const LoaderTools = () => {
     setIsTransparent(event.target.checked);
   };
 
-  const handleTabChange = (event, newValue) => {
-    setActiveTab(newValue);
-  };
-
-  const handlePresetClick = (preset) => {
-    setSelectedType(preset.type);
-
-    if (preset.colors) {
-      setColors(preset.colors);
-    } else if (preset.color) {
-      setColors([preset.color]);
-    }
-
-    if (preset.size) setSize(preset.size);
-    if (preset.speed) setSpeed(preset.speed);
-    if (preset.scale) setScale(preset.scale);
-    if (preset.opacity) setOpacity(preset.opacity);
-    if (preset.thickness) setThickness(preset.thickness);
-  };
-
   const handleDownload = async (format) => {
     if (!previewRef.current) return;
 
     setLoading(true);
+    setActiveTab(format);
+    setDownloadError("");
+    setShowSuccessMessage(false);
     try {
-      if (format === "svg") {
-        // For SVG, use the backend endpoint
-        const response = await loaderToolsApi.downloadAsSVG({
-          type: selectedType,
-          colors,
-          speed,
-          size,
-          scale,
-          opacity,
-          thickness,
-          backgroundColor: isTransparent ? "transparent" : backgroundColor,
-        });
-
-        const url = URL.createObjectURL(response.data);
+      const triggerDownload = (href, filename) => {
         const link = document.createElement("a");
-        link.href = url;
-        link.download = "loader.svg";
+        link.href = href;
+        link.download = filename;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        URL.revokeObjectURL(url);
+      };
+
+      const capturePreviewAsPngDataUrl = async () => {
+        const canvas = await html2canvas(previewRef.current, {
+          backgroundColor: isTransparent ? null : backgroundColor,
+          scale: 2,
+          useCORS: true,
+        });
+
+        return canvas.toDataURL("image/png");
+      };
+
+      const buildSvgMarkup = () => `
+        <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+          <foreignObject width="100%" height="100%">
+            <div
+              xmlns="http://www.w3.org/1999/xhtml"
+              style="width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;background:${isTransparent ? "transparent" : backgroundColor};"
+            >
+              <style>${loaderExportAnimationStyles}</style>
+              ${generateLoaderHTML()}
+            </div>
+          </foreignObject>
+        </svg>
+      `;
+
+      if (format === "svg") {
+        const svgBlob = new Blob([buildSvgMarkup()], { type: "image/svg+xml;charset=utf-8" });
+        saveAs(svgBlob, "loader.svg");
       } else if (format === "png") {
-        // For PNG, use toDataURL
-        try {
-          const svgContent = generateLoaderHTML();
-          const data = `
-            <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">
-              <foreignObject width="100%" height="100%">
-                <div xmlns="http://www.w3.org/1999/xhtml">
-                  <style>
-                    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-                    @keyframes rotate { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-                    @keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
-                    @keyframes stretch { 0%, 40%, 100% { transform: scaleY(0.4); } 20% { transform: scaleY(1); } }
-                    @keyframes ripple { 0% { transform: scale(0); opacity: 1; } 100% { transform: scale(1); opacity: 0; } }
-                    @keyframes dual-ring { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-                    @keyframes grid { 0%, 100% { transform: translate(1px, 1px) }
-                                      12.5% { transform: translate(${size * 0.3}px, 1px) }
-                                      25% { transform: translate(${size * 0.6}px, 1px) }
-                                      37.5% { transform: translate(${size * 0.6}px, ${size * 0.3}px) }
-                                      50% { transform: translate(${size * 0.6}px, ${size * 0.6}px) }
-                                      62.5% { transform: translate(${size * 0.3}px, ${size * 0.6}px) }
-                                      75% { transform: translate(1px, ${size * 0.6}px) }
-                                      87.5% { transform: translate(1px, ${size * 0.3}px) } }
-                    @keyframes hourglass-top { 0% { transform: rotate(0); } 
-                                              50% { transform: rotate(180deg); } 
-                                              100% { transform: rotate(180deg); } }
-                    @keyframes hourglass-bottom { 0% { transform: rotate(0); } 
-                                                 50% { transform: rotate(0); } 
-                                                 100% { transform: rotate(180deg); } }
-                    @keyframes ellipsis { 0%, 80%, 100% { transform: scale(0) } 40% { transform: scale(1) } }
-                    @keyframes hearts { 0% { transform: scale(0.8) rotate(45deg); opacity: 0.8; }
-                                       50% { transform: scale(1.2) rotate(45deg); opacity: 1; }
-                                       100% { transform: scale(0.8) rotate(45deg); opacity: 0.8; } }
-                  </style>
-                  ${svgContent}
-                </div>
-              </foreignObject>
-            </svg>
-          `;
-
-          const blob = new Blob([data], { type: "image/svg+xml;charset=utf-8" });
-          const url = URL.createObjectURL(blob);
-
-          const img = new Image();
-          img.onload = () => {
-            const canvas = document.createElement("canvas");
-            canvas.width = size;
-            canvas.height = size;
-            const ctx = canvas.getContext("2d");
-            ctx.drawImage(img, 0, 0);
-
-            const pngUrl = canvas.toDataURL("image/png");
-            const link = document.createElement("a");
-            link.href = pngUrl;
-            link.download = "loader.png";
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-          };
-          img.src = url;
-        } catch (error) {
-          console.error("Error creating PNG:", error);
-        }
+        const pngUrl = await capturePreviewAsPngDataUrl();
+        triggerDownload(pngUrl, "loader.png");
       } else if (format === "gif") {
-        // For GIF, use the backend endpoint
-        try {
-          // Create a simple animation
-          const svgString = `
-            <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">
-              <style>
-                @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-              </style>
-              <g style="animation: spin ${1 / speed}s linear infinite;">
-                <circle cx="${size / 2}" cy="${size / 2}" r="${size * 0.4}" fill="${colors[0]}" />
-              </g>
-            </svg>
-          `;
+        const dataUrl = await capturePreviewAsPngDataUrl();
+        const response = await loaderToolsApi.convertToGif({
+          imageData: dataUrl,
+          duration: Math.max(100, Math.round(1000 / speed)),
+          size: Math.max(50, size),
+        });
 
-          const blob = new Blob([svgString], { type: "image/svg+xml" });
-          const url = URL.createObjectURL(blob);
-
-          const img = new Image();
-          img.onload = async () => {
-            const canvas = document.createElement("canvas");
-            canvas.width = size;
-            canvas.height = size;
-            const ctx = canvas.getContext("2d");
-            ctx.drawImage(img, 0, 0);
-
-            const dataUrl = canvas.toDataURL("image/png");
-
-            try {
-              const response = await loaderToolsApi.convertToGif({
-                imageData: dataUrl,
-                duration: 1000 / speed,
-              });
-
-              const gifUrl = URL.createObjectURL(response.data);
-              const link = document.createElement("a");
-              link.href = gifUrl;
-              link.download = "loader.gif";
-              document.body.appendChild(link);
-              link.click();
-              document.body.removeChild(link);
-              URL.revokeObjectURL(gifUrl);
-            } catch (error) {
-              console.error("Error converting to GIF:", error);
-            }
-          };
-          img.src = url;
-        } catch (error) {
-          console.error("Error creating GIF:", error);
-        }
+        saveAs(response.data, "loader.gif");
       }
 
       // Show success message
+      if (successTimeoutRef.current) {
+        window.clearTimeout(successTimeoutRef.current);
+      }
       setShowSuccessMessage(true);
-      setTimeout(() => setShowSuccessMessage(false), 3000);
+      successTimeoutRef.current = window.setTimeout(() => setShowSuccessMessage(false), 3000);
     } catch (error) {
       console.error("Failed to download loader:", error);
+      setShowSuccessMessage(false);
+      const apiMessage = error.response?.data?.error || error.response?.data?.message;
+      setDownloadError(apiMessage || "Failed to export the loader. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -934,20 +829,23 @@ const LoaderTools = () => {
     );
   };
 
-  const CustomSlider = ({ label, value, onChange, min, max, step, displayValue }) => {
+  const CustomSlider = ({ label, value, onChange, min, max, step, displayValue, disabled = false, helperText = "" }) => {
     // Create increment and decrement functions
     const increment = () => {
+      if (disabled) return;
       const newValue = Math.min(Number(value) + (step || 0.1), max);
       onChange(newValue);
     };
 
     const decrement = () => {
+      if (disabled) return;
       const newValue = Math.max(Number(value) - (step || 0.1), min);
       onChange(newValue);
     };
 
     // Handle direct input
     const handleInputChange = (e) => {
+      if (disabled) return;
       let newValue = parseFloat(e.target.value);
       if (isNaN(newValue)) return;
 
@@ -957,7 +855,7 @@ const LoaderTools = () => {
     };
 
     return (
-      <Box sx={{ mb: 3 }}>
+      <Box sx={{ mb: 3, opacity: disabled ? 0.58 : 1, transition: "opacity 0.2s ease" }}>
         <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 0.5 }}>
           <Typography variant="body2" fontWeight="500">
             {label}
@@ -967,7 +865,7 @@ const LoaderTools = () => {
           </Typography>
         </Box>
         <Box sx={{ display: "flex", alignItems: "center" }}>
-          <IconButton size="small" onClick={decrement} sx={{ p: 0.5 }}>
+          <IconButton size="small" onClick={decrement} sx={{ p: 0.5 }} disabled={disabled}>
             <Remove fontSize="small" />
           </IconButton>
 
@@ -976,6 +874,7 @@ const LoaderTools = () => {
             type="number"
             value={value}
             onChange={handleInputChange}
+            disabled={disabled}
             inputProps={{
               step: step || 0.1,
               min,
@@ -985,12 +884,25 @@ const LoaderTools = () => {
             sx={{ mx: 1, width: "70px" }}
           />
 
-          <IconButton size="small" onClick={increment} sx={{ p: 0.5 }}>
+          <IconButton size="small" onClick={increment} sx={{ p: 0.5 }} disabled={disabled}>
             <Add fontSize="small" />
           </IconButton>
 
-          <Slider value={value} onChange={(_, newValue) => onChange(newValue)} min={min} max={max} step={step || 0.1} sx={{ ml: 2, flex: 1 }} />
+          <Slider
+            value={value}
+            onChange={(_, newValue) => onChange(newValue)}
+            min={min}
+            max={max}
+            step={step || 0.1}
+            disabled={disabled}
+            sx={{ ml: 2, flex: 1 }}
+          />
         </Box>
+        {helperText ? (
+          <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.75 }}>
+            {helperText}
+          </Typography>
+        ) : null}
       </Box>
     );
   };
@@ -1001,6 +913,8 @@ const LoaderTools = () => {
   // Get loader-specific controls
   const renderLoaderControls = () => {
     const customOptions = currentLoader.customOptions || ["color", "speed", "size", "thickness"];
+    const supportsSize = customOptions.includes("size");
+    const supportsThickness = customOptions.includes("thickness");
 
     return (
       <Box>
@@ -1009,24 +923,43 @@ const LoaderTools = () => {
         {customOptions.includes("color") && renderSingleColorInput()}
         {customOptions.includes("multiColor") && renderMultiColorInput()}
 
-        {customOptions.includes("speed") && <CustomSlider label="Speed" value={speed} onChange={handleSpeedChange} min={0.1} max={2} step={0.1} displayValue={`${speed}s`} />}
+        <CustomSlider label="Speed" value={speed} onChange={handleSpeedChange} min={0.1} max={2} step={0.1} displayValue={`${speed}s`} />
 
-        {customOptions.includes("size") && <CustomSlider label="Size" value={size} onChange={handleSizeChange} min={30} max={150} step={5} displayValue={`${size}px`} />}
+        <CustomSlider
+          label="Size"
+          value={size}
+          onChange={handleSizeChange}
+          min={30}
+          max={150}
+          step={5}
+          displayValue={`${size}px`}
+          disabled={!supportsSize}
+          helperText={!supportsSize ? `${currentLoader.name} uses border thickness instead of a size control.` : ""}
+        />
 
-        {customOptions.includes("thickness") && <CustomSlider label="Thickness" value={thickness} onChange={handleThicknessChange} min={1} max={10} step={1} displayValue={`${thickness}px`} />}
+        <CustomSlider
+          label="Thickness"
+          value={thickness}
+          onChange={handleThicknessChange}
+          min={1}
+          max={10}
+          step={1}
+          displayValue={`${thickness}px`}
+          disabled={!supportsThickness}
+          helperText={!supportsThickness ? `${currentLoader.name} is driven by size rather than border thickness.` : ""}
+        />
       </Box>
     );
   };
 
   return (
-    <Container maxWidth="lg">
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" gutterBottom fontWeight="500">
-          Loader Generator
-        </Typography>
-        <Typography variant="body1" color="text.secondary">
-          Create beautiful, customizable loading animations
-        </Typography>
+    <Container maxWidth="xl">
+      <Box sx={{ py: 2 }}>
+        <ToolPageHeader
+          title="Loader Generator"
+          description="Build and export customizable loading animations with live preview support for PNG, SVG, and GIF output."
+          chips={["Live preview", "Export ready", "Mobile friendly controls"]}
+        />
       </Box>
 
       {/* Display all loader types first */}
@@ -1077,10 +1010,10 @@ const LoaderTools = () => {
                 borderRadius: 2,
               }}
             >
-              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
+              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: { xs: "flex-start", md: "center" }, flexDirection: { xs: "column", md: "row" }, gap: 1.5, mb: 3 }}>
                 <Typography variant="h6">Customize {currentLoader.name}</Typography>
 
-                <ButtonGroup>
+                <ButtonGroup orientation={isSmallScreen ? "vertical" : "horizontal"}>
                   <Button onClick={() => handleDownload("png")} disabled={loading} variant={activeTab === "png" ? "contained" : "outlined"} sx={{ px: 2 }}>
                     PNG
                   </Button>
@@ -1094,6 +1027,12 @@ const LoaderTools = () => {
               </Box>
 
               <Divider sx={{ mb: 3 }} />
+
+              {downloadError ? (
+                <Alert severity="error" sx={{ mb: 3 }}>
+                  {downloadError}
+                </Alert>
+              ) : null}
 
               {/* Loader-specific controls */}
               {renderLoaderControls()}

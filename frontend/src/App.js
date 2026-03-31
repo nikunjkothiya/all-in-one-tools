@@ -1,7 +1,7 @@
 import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { ThemeProvider, createTheme, CssBaseline, Box, AppBar, Toolbar, Typography, Button, Container, IconButton, Menu, MenuItem, ListItemIcon, ListItemText, useMediaQuery } from "@mui/material";
-import { TextFields, Image, PictureAsPdf, Folder, VideoLibrary, Language, Storage, Security, Code, MoreVert, Home, Info, ContactSupport, Coffee, QrCode2, Miscellaneous } from "@mui/icons-material";
+import { TextFields, Image, PictureAsPdf, Folder, VideoLibrary, Language, Storage, Security, Code, MoreVert, Home, Info, ContactSupport, Coffee, QrCode2, AdminPanelSettings, DeveloperMode } from "@mui/icons-material";
 import { Link, useLocation } from "react-router-dom";
 import { useState } from "react";
 
@@ -17,6 +17,15 @@ import DataTools from "./pages/DataTools";
 import PrivacyTools from "./pages/PrivacyTools";
 import LoaderTools from "./pages/LoaderTools";
 import MiscTools from "./pages/MiscTools";
+import DeveloperTools from "./pages/DeveloperTools";
+import AdminLogin from "./pages/AdminLogin";
+import AdminPanel from "./pages/AdminPanel";
+import AboutPage from "./pages/AboutPage";
+import ContactPage from "./pages/ContactPage";
+import NotFoundPage from "./pages/NotFoundPage";
+import AdminRoute from "./components/AdminRoute";
+import AdSlot from "./components/AdSlot";
+import MetaPixelLoader from "./components/MetaPixelLoader";
 import Footer from "./components/Footer";
 
 // Define theme
@@ -117,6 +126,12 @@ const toolCategories = [
     component: LoaderTools,
   },
   {
+    name: "Developer Tools",
+    icon: <DeveloperMode />,
+    path: "/developer-tools",
+    component: DeveloperTools,
+  },
+  {
     name: "Miscellaneous Tools",
     icon: <QrCode2 />,
     path: "/misc-tools",
@@ -134,6 +149,16 @@ const Logo = () => (
     <path d="M25 10C30 15 30 35 25 40" stroke="white" strokeWidth="2" />
   </svg>
 );
+
+const toolPaths = new Set(toolCategories.map((category) => category.path));
+
+const getPageKey = (pathname) => {
+  if (!pathname || pathname === "/") {
+    return "home";
+  }
+
+  return pathname.replace(/^\//, "");
+};
 
 const Header = () => {
   const [toolsMenuAnchor, setToolsMenuAnchor] = useState(null);
@@ -192,7 +217,7 @@ const Header = () => {
               Home
             </Button>
 
-            <Button color={location.pathname.includes("/tools") ? "primary" : "inherit"} onClick={handleToolsMenuOpen} aria-controls="tools-menu" aria-haspopup="true" size="small" sx={{ px: 1 }}>
+            <Button color={toolPaths.has(location.pathname) ? "primary" : "inherit"} onClick={handleToolsMenuOpen} aria-controls="tools-menu" aria-haspopup="true" size="small" sx={{ px: 1 }}>
               Tools
             </Button>
             <Menu
@@ -215,11 +240,14 @@ const Header = () => {
               ))}
             </Menu>
 
-            <Button color="inherit" component={Link} to="/about" startIcon={<Info />} size="small" sx={{ px: 1 }}>
+            <Button color={location.pathname === "/about" ? "primary" : "inherit"} component={Link} to="/about" startIcon={<Info />} size="small" sx={{ px: 1 }}>
               About
             </Button>
-            <Button color="inherit" component={Link} to="/contact" startIcon={<ContactSupport />} size="small" sx={{ px: 1 }}>
+            <Button color={location.pathname === "/contact" ? "primary" : "inherit"} component={Link} to="/contact" startIcon={<ContactSupport />} size="small" sx={{ px: 1 }}>
               Contact
+            </Button>
+            <Button color="inherit" component={Link} to="/admin" startIcon={<AdminPanelSettings />} size="small" sx={{ px: 1 }}>
+              Admin
             </Button>
             <Button color="primary" variant="contained" component="a" href="https://www.buymeacoffee.com/" target="_blank" rel="noopener noreferrer" startIcon={<Coffee />} size="small" sx={{ ml: 0.5 }}>
               Buy me a coffee
@@ -268,6 +296,12 @@ const Header = () => {
                   </ListItemIcon>
                   <ListItemText>Contact</ListItemText>
                 </MenuItem>
+                <MenuItem component={Link} to="/admin" onClick={handleMoreMenuClose} dense>
+                  <ListItemIcon>
+                    <AdminPanelSettings fontSize="small" />
+                  </ListItemIcon>
+                  <ListItemText>Admin</ListItemText>
+                </MenuItem>
                 <MenuItem component="a" href="https://www.buymeacoffee.com/" target="_blank" rel="noopener noreferrer" onClick={handleMoreMenuClose} dense>
                   <ListItemIcon>
                     <Coffee fontSize="small" />
@@ -283,33 +317,57 @@ const Header = () => {
   );
 };
 
+const AppContent = () => {
+  const location = useLocation();
+  const isAdminRoute = location.pathname.startsWith("/admin");
+  const isToolRoute = toolPaths.has(location.pathname);
+  const pageKey = getPageKey(location.pathname);
+
+  return (
+    <Box sx={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
+      {!isAdminRoute && <MetaPixelLoader />}
+      <Header />
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          p: { xs: 1, sm: 2 },
+        }}
+      >
+        <Container maxWidth="xl" sx={{ mt: 1 }}>
+          {!isAdminRoute && location.pathname !== "/" && <AdSlot slotKey="global-top" pageKey={pageKey} />}
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            {toolCategories.map((category) => (
+              <Route key={category.path} path={category.path} element={<category.component />} />
+            ))}
+            <Route path="/admin/login" element={<AdminLogin />} />
+            <Route
+              path="/admin"
+              element={
+                <AdminRoute>
+                  <AdminPanel />
+                </AdminRoute>
+              }
+            />
+            <Route path="/about" element={<AboutPage />} />
+            <Route path="/contact" element={<ContactPage />} />
+            <Route path="*" element={<NotFoundPage />} />
+          </Routes>
+          {!isAdminRoute && isToolRoute && <AdSlot slotKey="tool-inline" pageKey={pageKey} sx={{ mt: 3 }} />}
+        </Container>
+      </Box>
+      <Footer />
+    </Box>
+  );
+};
+
 function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <Router>
-        <Box sx={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
-          <Header />
-          <Box
-            component="main"
-            sx={{
-              flexGrow: 1,
-              p: { xs: 1, sm: 2 },
-            }}
-          >
-            <Container maxWidth="xl" sx={{ mt: 1 }}>
-              <Routes>
-                <Route path="/" element={<HomePage />} />
-                {toolCategories.map((category) => (
-                  <Route key={category.path} path={category.path} element={<category.component />} />
-                ))}
-                <Route path="/about" element={<div>About Page</div>} />
-                <Route path="/contact" element={<div>Contact Page</div>} />
-              </Routes>
-            </Container>
-          </Box>
-          <Footer />
-        </Box>
+        <AppContent />
       </Router>
     </ThemeProvider>
   );

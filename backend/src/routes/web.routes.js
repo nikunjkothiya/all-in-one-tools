@@ -6,8 +6,11 @@ import puppeteer from 'puppeteer';
 import { URL } from 'url';
 import path from 'path';
 import fs from 'fs';
+import https from 'https';
 import lighthouse from 'lighthouse';
 import * as chromeLauncher from 'chrome-launcher';
+import config from '../config/env.js';
+import validateRequest from "../middleware/validateRequest.js";
 
 const router = express.Router();
 
@@ -17,14 +20,56 @@ router.post(
     [
         body('url').notEmpty().withMessage('URL is required').isURL().withMessage('Invalid URL')
     ],
+    validateRequest,
     async (req, res) => {
         try {
             const { url } = req.body;
-            // Using TinyURL API for URL shortening
-            const response = await axios.get(`http://tinyurl.com/api-create.php?url=${encodeURIComponent(url)}`);
-            res.json({ shortened: response.data });
+            const endpoint = new URL(config.tinyUrlApiBase);
+            endpoint.searchParams.set('url', url);
+
+            const { statusCode, headers, body } = await new Promise((resolve, reject) => {
+                const request = https.get(
+                    endpoint,
+                    {
+                        headers: {
+                            Accept: 'text/plain',
+                            'User-Agent': 'AllInOneTools/1.0 (+https://localhost)',
+                        },
+                    },
+                    (response) => {
+                        let payload = '';
+                        response.setEncoding('utf8');
+                        response.on('data', (chunk) => {
+                            payload += chunk;
+                        });
+                        response.on('end', () => {
+                            resolve({
+                                statusCode: response.statusCode || 500,
+                                headers: response.headers,
+                                body: payload.trim(),
+                            });
+                        });
+                    }
+                );
+
+                request.setTimeout(config.webTimeout, () => {
+                    request.destroy(new Error('URL shortener request timed out'));
+                });
+                request.on('error', reject);
+            });
+
+            const shortened = headers['x-lighttpd-tinyurl'] || body;
+
+            if (statusCode >= 400 || !/^https?:\/\//i.test(shortened)) {
+                return res.status(502).json({
+                    error: 'URL shortener service rejected the request',
+                    details: body || `Upstream status ${statusCode}`,
+                });
+            }
+
+            res.json({ shortened });
         } catch (error) {
-            res.status(400).json({ error: error.message });
+            res.status(502).json({ error: error.message || 'Failed to create short URL' });
         }
     }
 );
@@ -35,6 +80,7 @@ router.post(
     [
         body('url').notEmpty().withMessage('URL is required').isURL().withMessage('Invalid URL')
     ],
+    validateRequest,
     async (req, res) => {
         let browser;
         try {
@@ -92,7 +138,7 @@ router.post(
             try {
                 await page.goto(url, {
                     waitUntil: 'domcontentloaded',
-                    timeout: 15000
+                    timeout: config.webTimeout
                 });
                 navigationSuccessful = true;
             } catch (error) {
@@ -231,6 +277,7 @@ router.post(
     [
         body('url').notEmpty().withMessage('URL is required').isURL().withMessage('Invalid URL')
     ],
+    validateRequest,
     async (req, res) => {
         try {
             const { url } = req.body;
@@ -265,6 +312,7 @@ router.post(
     [
         body('url').notEmpty().withMessage('URL is required').isURL().withMessage('Invalid URL')
     ],
+    validateRequest,
     async (req, res) => {
         try {
             const { url } = req.body;
@@ -302,6 +350,7 @@ router.post(
     [
         body('url').notEmpty().withMessage('URL is required').isURL().withMessage('Invalid URL')
     ],
+    validateRequest,
     async (req, res) => {
         try {
             const { url } = req.body;
@@ -330,25 +379,49 @@ router.post(
     [
         body('url').notEmpty().withMessage('URL is required').isURL().withMessage('Invalid URL')
     ],
+    validateRequest,
     async (req, res) => {
         try {
             const { url } = req.body;
-            const response = await axios.get(url, {
-                httpsAgent: new (require('https').Agent)({
-                    rejectUnauthorized: false
-                })
-            });
+            const targetUrl = new URL(url);
+            if (targetUrl.protocol !== 'https:') {
+                return res.status(400).json({ error: 'SSL checks require an HTTPS URL' });
+            }
 
-            const cert = response.request.res.socket.getPeerCertificate();
-            const sslInfo = {
-                subject: cert.subject,
-                issuer: cert.issuer,
-                validFrom: cert.valid_from,
-                validTo: cert.valid_to,
-                protocol: response.request.res.socket.getProtocol(),
-                cipher: response.request.res.socket.getCipher(),
-                isSecure: response.request.res.socket.encrypted
-            };
+            const sslInfo = await new Promise((resolve, reject) => {
+                const request = https.request(
+                    targetUrl,
+                    {
+                        method: 'GET',
+                        agent: new https.Agent({
+                            rejectUnauthorized: false,
+                        }),
+                    },
+                    (response) => {
+                        const cert = response.socket?.getPeerCertificate?.(true);
+                        if (!cert || !Object.keys(cert).length) {
+                            reject(new Error('No SSL certificate information available'));
+                            return;
+                        }
+
+                        resolve({
+                            subject: cert.subject,
+                            issuer: cert.issuer,
+                            validFrom: cert.valid_from,
+                            validTo: cert.valid_to,
+                            protocol: response.socket?.getProtocol?.() || null,
+                            cipher: response.socket?.getCipher?.() || null,
+                            isSecure: Boolean(response.socket?.encrypted),
+                        });
+                    }
+                );
+
+                request.setTimeout(config.webTimeout, () => {
+                    request.destroy(new Error('SSL check timed out'));
+                });
+                request.on('error', reject);
+                request.end();
+            });
 
             res.json(sslInfo);
         } catch (error) {
@@ -363,11 +436,24 @@ router.post(
     [
         body('url').notEmpty().withMessage('URL is required').isURL().withMessage('Invalid URL')
     ],
+    validateRequest,
     async (req, res) => {
         try {
             const { url } = req.body;
             const baseUrl = new URL(url).origin;
-            const response = await axios.get(`${baseUrl}/robots.txt`);
+            const response = await axios.get(`${baseUrl}/robots.txt`, {
+                validateStatus: (status) => status >= 200 && status < 500,
+            });
+
+            if (response.status === 404) {
+                return res.json({
+                    exists: false,
+                    robotsUrl: `${baseUrl}/robots.txt`,
+                    rules: {},
+                    content: "",
+                    message: "No robots.txt file was found for this website.",
+                });
+            }
 
             const robotsContent = response.data;
             const rules = robotsContent.split('\n').reduce((acc, line) => {
@@ -381,7 +467,12 @@ router.post(
                 return acc;
             }, {});
 
-            res.json(rules);
+            res.json({
+                exists: true,
+                robotsUrl: `${baseUrl}/robots.txt`,
+                rules,
+                content: robotsContent,
+            });
         } catch (error) {
             res.status(500).json({ error: error.message });
         }
@@ -394,6 +485,7 @@ router.post(
     [
         body('url').notEmpty().withMessage('URL is required').isURL().withMessage('Invalid URL')
     ],
+    validateRequest,
     async (req, res) => {
         let chrome;
         try {
@@ -472,6 +564,7 @@ router.post(
     [
         body('url').notEmpty().withMessage('URL is required').isURL().withMessage('Invalid URL')
     ],
+    validateRequest,
     async (req, res) => {
         try {
             const { url } = req.body;
@@ -506,7 +599,7 @@ router.post(
             const checkedLinks = await Promise.all(
                 links.slice(0, 10).map(async (link) => {
                     try {
-                        const response = await axios.head(link.url, { timeout: 5000 });
+                        const response = await axios.head(link.url, { timeout: config.webTimeout });
                         return {
                             ...link,
                             status: response.status,

@@ -1,12 +1,15 @@
 import express from "express";
 import multer from "multer";
-import { body, validationResult } from "express-validator";
+import { body } from "express-validator";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
 import ffmpeg from "fluent-ffmpeg";
 import { io } from "../socket.js";
+import config from "../config/env.js";
+import { ensureUploadsDir } from "../config/paths.js";
+import validateRequest from "../middleware/validateRequest.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -18,7 +21,7 @@ const storage = multer.memoryStorage();
 const upload = multer({
   storage: storage,
   limits: {
-    fileSize: 100 * 1024 * 1024, // 100MB limit
+    fileSize: config.maxMediaSize,
   },
   fileFilter: (req, file, cb) => {
     if (file.mimetype.startsWith("video/") || file.mimetype.startsWith("audio/")) {
@@ -30,10 +33,7 @@ const upload = multer({
 });
 
 // Ensure uploads directory exists
-const uploadsDir = path.join(process.cwd(), "uploads");
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
+const uploadsDir = ensureUploadsDir();
 
 // Helper function to save file and return URL
 const saveFile = async (buffer, filename) => {
@@ -42,13 +42,90 @@ const saveFile = async (buffer, filename) => {
   const filepath = path.join(uploadsDir, uniqueFilename);
   await fs.promises.writeFile(filepath, buffer);
   // Return absolute URL path
-  return `/uploads/${uniqueFilename}`;
+  return `/${config.uploadDir}/${uniqueFilename}`;
 };
 
 // Helper function to parse time string (HH:MM:SS) to seconds
 const parseTimeToSeconds = (timeStr) => {
   const [hours, minutes, seconds] = timeStr.split(":").map(Number);
   return hours * 3600 + minutes * 60 + seconds;
+};
+
+const AUDIO_OUTPUT_FORMATS = new Set(["mp3", "aac", "wav"]);
+
+const probeMediaStreamInfo = (filePath) =>
+  new Promise((resolve, reject) => {
+    ffmpeg.ffprobe(filePath, (error, metadata) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+
+      const streams = metadata.streams || [];
+      resolve({
+        hasVideo: streams.some((stream) => stream.codec_type === "video"),
+        hasAudio: streams.some((stream) => stream.codec_type === "audio"),
+      });
+    });
+  });
+
+const getAudioCodecForFormat = (format) => {
+  switch (format) {
+    case "mp3":
+      return "libmp3lame";
+    case "aac":
+      return "aac";
+    case "wav":
+    default:
+      return "pcm_s16le";
+  }
+};
+
+const getVideoCodecConfig = (format) => {
+  switch (format) {
+    case "webm":
+      return { videoCodec: "libvpx-vp9", audioCodec: "libopus" };
+    case "avi":
+      return { videoCodec: "mpeg4", audioCodec: "aac" };
+    case "mov":
+    case "mkv":
+    case "mp4":
+    default:
+      return { videoCodec: "libx264", audioCodec: "aac" };
+  }
+};
+
+const getCompressedAudioTarget = (originalName) => {
+  const extension = path.extname(originalName).toLowerCase();
+
+  switch (extension) {
+    case ".mp3":
+      return { format: "mp3", codec: "libmp3lame", extension: ".mp3", bitrate: "128k" };
+    case ".aac":
+      return { format: "adts", codec: "aac", extension: ".aac", bitrate: "128k" };
+    case ".wav":
+      return { format: "wav", codec: "adpcm_ima_wav", extension: ".wav", bitrate: null };
+    default:
+      return { format: "mp3", codec: "libmp3lame", extension: ".mp3", bitrate: "128k" };
+  }
+};
+
+const buildAtempoFilter = (speed) => {
+  let remainingSpeed = Number(speed);
+  const filters = [];
+
+  while (remainingSpeed < 0.5) {
+    filters.push("atempo=0.5");
+    remainingSpeed /= 0.5;
+  }
+
+  while (remainingSpeed > 2) {
+    filters.push("atempo=2.0");
+    remainingSpeed /= 2;
+  }
+
+  filters.push(`atempo=${remainingSpeed.toFixed(3)}`);
+  return filters.join(",");
 };
 
 // Helper function to emit progress
@@ -62,7 +139,7 @@ const emitProgress = (processingId, percent) => {
 };
 
 // Media convert endpoint
-router.post("/convert", upload.single("file"), [body("format").isIn(["mp4", "webm", "mov", "avi", "mkv", "gif", "mp3", "aac", "wav"]).withMessage("Invalid format"), body("resolution").optional().isString(), body("fps").optional().isInt({ min: 15, max: 60 })], async (req, res) => {
+router.post("/convert", upload.single("file"), [body("format").isIn(["mp4", "webm", "mov", "avi", "mkv", "gif", "mp3", "aac", "wav"]).withMessage("Invalid format"), body("resolution").optional().isString(), body("fps").optional().isInt({ min: 15, max: 60 })], validateRequest, async (req, res) => {
   const tempFiles = [];
   try {
     if (!req.file) {
@@ -76,14 +153,51 @@ router.post("/convert", upload.single("file"), [body("format").isIn(["mp4", "web
 
     tempFiles.push(inputPath, outputPath);
     await fs.promises.writeFile(inputPath, req.file.buffer);
+    const { hasVideo, hasAudio } = await probeMediaStreamInfo(inputPath);
+    const command = ffmpeg(inputPath).toFormat(format);
+    const isAudioOutput = AUDIO_OUTPUT_FORMATS.has(format);
 
-    const command = ffmpeg(inputPath).toFormat(format).videoCodec("mpeg2video").audioCodec("aac");
+    if (isAudioOutput) {
+      if (!hasAudio) {
+        await fs.promises.unlink(inputPath).catch(() => {});
+        return res.status(400).json({ error: "This file does not contain an audio stream to convert." });
+      }
 
-    if (resolution) {
-      command.size(resolution);
-    }
-    if (fps) {
-      command.fps(fps);
+      command.noVideo().audioCodec(getAudioCodecForFormat(format));
+    } else if (format === "gif") {
+      if (!hasVideo) {
+        await fs.promises.unlink(inputPath).catch(() => {});
+        return res.status(400).json({ error: "GIF conversion requires a video input file." });
+      }
+
+      command.noAudio();
+      if (resolution) {
+        command.size(resolution);
+      }
+      if (fps) {
+        command.fps(fps);
+      }
+      command.outputOptions(["-loop 0"]);
+    } else {
+      if (!hasVideo) {
+        await fs.promises.unlink(inputPath).catch(() => {});
+        return res.status(400).json({ error: "Audio-only files can only be converted to audio formats." });
+      }
+
+      const { videoCodec, audioCodec } = getVideoCodecConfig(format);
+      command.videoCodec(videoCodec);
+      if (hasAudio) {
+        command.audioCodec(audioCodec);
+      } else {
+        command.noAudio();
+      }
+
+      if (resolution) {
+        command.size(resolution);
+      }
+      if (fps) {
+        command.fps(fps);
+      }
     }
 
     await new Promise((resolve, reject) => {
@@ -140,68 +254,79 @@ router.post("/convert", upload.single("file"), [body("format").isIn(["mp4", "web
 });
 
 // Media compress endpoint
-router.post("/compress", upload.single("file"), [body("quality").isInt({ min: 1, max: 100 }), body("bitrate").optional().isString()], async (req, res) => {
+router.post("/compress", upload.single("file"), [body("quality").isInt({ min: 1, max: 100 }), body("bitrate").optional().isString()], validateRequest, async (req, res) => {
   const tempFiles = [];
   try {
     if (!req.file) {
       return res.status(400).json({ error: "No media file provided" });
     }
 
-    const { quality, bitrate = "1000k", processingId } = req.body;
+    const { quality, bitrate, processingId } = req.body;
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
     const inputPath = path.join(uploadsDir, `temp_${timestamp}_${req.file.originalname}`);
-    const outputPath = path.join(uploadsDir, `compressed_${timestamp}_${req.file.originalname}`);
-
-    tempFiles.push(inputPath, outputPath);
+    tempFiles.push(inputPath);
     await fs.promises.writeFile(inputPath, req.file.buffer);
+    const { hasVideo, hasAudio } = await probeMediaStreamInfo(inputPath);
 
-    // Determine video codec based on input format
-    const fileExt = path.extname(req.file.originalname).toLowerCase();
-    let videoCodec;
-    let audioCodec;
+    let outputFilename;
+    let outputPath;
+    let command;
 
-    switch (fileExt) {
-      case ".webm":
-        videoCodec = "libvpx-vp9";
-        audioCodec = "libopus";
-        break;
-      case ".mp4":
-      case ".mov":
-        videoCodec = "libx264";
-        audioCodec = "aac";
-        break;
-      case ".avi":
-        videoCodec = "mpeg4";
-        audioCodec = "aac";
-        break;
-      default:
-        videoCodec = "libx264";
-        audioCodec = "aac";
-    }
+    if (!hasVideo && hasAudio) {
+      const audioTarget = getCompressedAudioTarget(req.file.originalname);
+      outputFilename = `compressed_${timestamp}${audioTarget.extension}`;
+      outputPath = path.join(uploadsDir, outputFilename);
+      tempFiles.push(outputPath);
 
-    // Calculate CRF value based on quality (1-100 to 0-51 scale, inverted because lower CRF means higher quality)
-    const crf = Math.round(51 - (quality / 100) * 51);
+      command = ffmpeg(inputPath).toFormat(audioTarget.format).audioCodec(audioTarget.codec);
+      if (audioTarget.bitrate) {
+        command.audioBitrate(bitrate || audioTarget.bitrate);
+      }
+      if (audioTarget.format === "wav") {
+        command.audioChannels(1).audioFrequency(22050);
+      }
+    } else {
+      outputFilename = `compressed_${timestamp}_${req.file.originalname}`;
+      outputPath = path.join(uploadsDir, outputFilename);
+      tempFiles.push(outputPath);
 
-    const command = ffmpeg(inputPath)
-      .videoCodec(videoCodec)
-      .audioCodec(audioCodec)
-      .videoBitrate(bitrate)
-      .outputOptions([`-crf ${crf}`]);
+      const fileExt = path.extname(req.file.originalname).toLowerCase();
+      let videoCodec;
+      let audioCodec;
 
-    // Add format-specific options
-    if (videoCodec === "libvpx-vp9") {
-      command.outputOptions([
-        "-b:v 0", // Use constant quality mode
-        `-crf ${crf}`,
-        "-deadline good", // Faster encoding
-        "-cpu-used 2", // Speed up encoding
-      ]);
-    } else if (videoCodec === "libx264") {
-      command.outputOptions([
-        "-preset medium", // Balance between speed and compression
-        `-crf ${crf}`,
-        "-movflags +faststart", // Enable streaming
-      ]);
+      switch (fileExt) {
+        case ".webm":
+          videoCodec = "libvpx-vp9";
+          audioCodec = "libopus";
+          break;
+        case ".mp4":
+        case ".mov":
+          videoCodec = "libx264";
+          audioCodec = "aac";
+          break;
+        case ".avi":
+          videoCodec = "mpeg4";
+          audioCodec = "aac";
+          break;
+        default:
+          videoCodec = "libx264";
+          audioCodec = "aac";
+      }
+
+      const effectiveBitrate = bitrate || "1000k";
+      const crf = Math.round(51 - (quality / 100) * 51);
+
+      command = ffmpeg(inputPath)
+        .videoCodec(videoCodec)
+        .audioCodec(audioCodec)
+        .videoBitrate(effectiveBitrate)
+        .outputOptions([`-crf ${crf}`]);
+
+      if (videoCodec === "libvpx-vp9") {
+        command.outputOptions(["-b:v 0", `-crf ${crf}`, "-deadline good", "-cpu-used 2"]);
+      } else if (videoCodec === "libx264") {
+        command.outputOptions(["-preset medium", `-crf ${crf}`, "-movflags +faststart"]);
+      }
     }
 
     await new Promise((resolve, reject) => {
@@ -228,7 +353,7 @@ router.post("/compress", upload.single("file"), [body("quality").isInt({ min: 1,
     });
 
     const outputBuffer = await fs.promises.readFile(outputPath);
-    const url = await saveFile(outputBuffer, `compressed_${timestamp}_${req.file.originalname}`);
+    const url = await saveFile(outputBuffer, outputFilename);
 
     // Clean up temporary files
     for (const file of tempFiles) {
@@ -239,7 +364,7 @@ router.post("/compress", upload.single("file"), [body("quality").isInt({ min: 1,
       }
     }
 
-    res.json({ compressed: url });
+    res.json({ compressed: url, filename: outputFilename });
   } catch (error) {
     console.error("Media compress error:", error);
     // Clean up temporary files on error
@@ -258,16 +383,10 @@ router.post("/compress", upload.single("file"), [body("quality").isInt({ min: 1,
 });
 
 // Media trim endpoint
-router.post("/trim", upload.single("file"), [body("startTime").notEmpty().withMessage("Start time is required"), body("endTime").notEmpty().withMessage("End time is required"), body("processingId").notEmpty().withMessage("Processing ID is required")], async (req, res) => {
+router.post("/trim", upload.single("file"), [body("startTime").notEmpty().withMessage("Start time is required"), body("endTime").notEmpty().withMessage("End time is required"), body("processingId").notEmpty().withMessage("Processing ID is required")], validateRequest, async (req, res) => {
   const tempFiles = [];
 
   try {
-    // Check for validation errors
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-
     if (!req.file) {
       return res.status(400).json({ error: "No media file provided" });
     }
@@ -347,16 +466,10 @@ router.post("/trim", upload.single("file"), [body("startTime").notEmpty().withMe
 });
 
 // Media speed change endpoint
-router.post("/speed", upload.single("file"), [body("speed").isFloat({ min: 0.25, max: 4.0 }).withMessage("Speed must be between 0.25 and 4.0"), body("processingId").notEmpty().withMessage("Processing ID is required")], async (req, res) => {
+router.post("/speed", upload.single("file"), [body("speed").isFloat({ min: 0.25, max: 4.0 }).withMessage("Speed must be between 0.25 and 4.0"), body("processingId").notEmpty().withMessage("Processing ID is required")], validateRequest, async (req, res) => {
   const tempFiles = [];
 
   try {
-    // Check for validation errors
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-
     if (!req.file) {
       return res.status(400).json({ error: "No media file provided" });
     }
@@ -369,6 +482,11 @@ router.post("/speed", upload.single("file"), [body("speed").isFloat({ min: 0.25,
     tempFiles.push(inputPath, outputPath);
 
     await fs.promises.writeFile(inputPath, req.file.buffer);
+    const { hasVideo, hasAudio } = await probeMediaStreamInfo(inputPath);
+    if (!hasVideo && !hasAudio) {
+      await fs.promises.unlink(inputPath).catch(() => {});
+      return res.status(400).json({ error: "No playable audio or video stream found in the selected file." });
+    }
 
     // Emit initial progress
     emitProgress(processingId, 0);
@@ -382,9 +500,20 @@ router.post("/speed", upload.single("file"), [body("speed").isFloat({ min: 0.25,
     });
 
     await new Promise((resolve, reject) => {
-      ffmpeg(inputPath)
-        .videoFilters(`setpts=${1 / speed}*PTS`)
-        .audioFilters(`atempo=${speed}`)
+      const command = ffmpeg(inputPath);
+      if (hasVideo) {
+        command.videoFilters(`setpts=${(1 / speed).toFixed(5)}*PTS`);
+      } else {
+        command.noVideo();
+      }
+
+      if (hasAudio) {
+        command.audioFilters(buildAtempoFilter(speed));
+      } else {
+        command.noAudio();
+      }
+
+      command
         .on("progress", (progress) => {
           if (progress.percent) {
             const percent = Math.min(progress.percent, 100);

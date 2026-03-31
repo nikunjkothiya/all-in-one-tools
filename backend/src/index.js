@@ -1,89 +1,44 @@
-import express from "express";
-import cors from "cors";
-import morgan from "morgan";
-import dotenv from "dotenv";
-import { connectDB } from "./config/db.js";
-import errorHandler from "./middleware/errorHandler.js";
-import textRoutes from "./routes/text.routes.js";
-import imageRoutes from "./routes/image.routes.js";
-import pdfRoutes from "./routes/pdf.routes.js";
-import developerRoutes from "./routes/developer.routes.js";
-import fileRoutes from "./routes/file.routes.js";
-import mediaRoutes from "./routes/media.routes.js";
-import webRoutes from "./routes/web.routes.js";
-import dataRoutes from "./routes/data.routes.js";
-import privacyRoutes from "./routes/privacy.routes.js";
-import loaderRoutes from "./routes/loader.routes.js";
-import path from "path";
-import { fileURLToPath } from "url";
-import { dirname } from "path";
-import { initializeSocket } from "./socket.js";
+import "./polyfills/node18.js";
 import fs from "fs";
+import app from "./app.js";
+import config from "./config/env.js";
+import { ensureUploadsDir, uploadsPath } from "./config/paths.js";
+import { initializeSocket } from "./socket.js";
 
-// Load environment variables
-dotenv.config();
-
-// Initialize express app
-const app = express();
-
-// Connect to MongoDB
-// connectDB();
-
-// Initialize Socket.IO
-const { io, server } = initializeSocket(app);
-
-// Middleware
-app.use(
-  cors({
-    origin: ["http://localhost:3000", "http://127.0.0.1:3000"],
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-    credentials: true,
-    optionsSuccessStatus: 200,
-  })
-);
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(morgan("dev"));
-
-// Serve static files from uploads directory
-const uploadsPath = path.join(process.cwd(), "uploads");
-if (!fs.existsSync(uploadsPath)) {
-  fs.mkdirSync(uploadsPath, { recursive: true });
-}
-app.use("/uploads", express.static(uploadsPath));
-
-// Mount routes
-app.use("/api/text", textRoutes);
-app.use("/api/image", imageRoutes);
-app.use("/api/pdf", pdfRoutes);
-app.use("/api/developer", developerRoutes);
-app.use("/api/file", fileRoutes);
-app.use("/api/media", mediaRoutes);
-app.use("/api/web", webRoutes);
-app.use("/api/data", dataRoutes);
-app.use("/api/privacy", privacyRoutes);
-app.use("/api/loader", loaderRoutes);
-
-// Health check endpoint
-app.get("/api/health", (req, res) => {
-  res.json({ status: "ok", timestamp: new Date().toISOString() });
-});
-
-// Error handling middleware
-app.use(errorHandler);
-
-// Handle 404 errors
-app.use((req, res) => {
-  res.status(404).json({
-    error: "Not Found",
-    message: "The requested resource was not found on this server",
-  });
-});
+ensureUploadsDir();
+const { server } = initializeSocket(app);
 
 // Start server
-const PORT = process.env.PORT || 5000;
+const PORT = config.port;
 server.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
+  console.log(`Environment: ${config.nodeEnv}`);
 });
+
+const CLEANUP_INTERVAL = 60 * 60 * 1000;
+const MAX_AGE = 2 * 60 * 60 * 1000;
+
+const cleanupUploads = async () => {
+  try {
+    const files = await fs.promises.readdir(uploadsPath);
+    const now = Date.now();
+
+    for (const file of files) {
+      const filePath = path.join(uploadsPath, file);
+      const stats = await fs.promises.stat(filePath);
+
+      if (now - stats.mtimeMs > MAX_AGE) {
+        await fs.promises.unlink(filePath);
+        console.log(`Cleaned up old file: ${file}`);
+      }
+    }
+  } catch (error) {
+    console.error("Error during file cleanup:", error);
+  }
+};
+
+const cleanupTimer = setInterval(() => {
+  void cleanupUploads();
+}, CLEANUP_INTERVAL);
+
+cleanupTimer.unref?.();

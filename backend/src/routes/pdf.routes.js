@@ -1,6 +1,6 @@
 import express from "express";
 import multer from "multer";
-import { PDFDocument } from "pdf-lib";
+import { PDFDocument, degrees, rgb, StandardFonts } from "pdf-lib";
 import { body } from "express-validator";
 import path from "path";
 import fs from "fs";
@@ -8,21 +8,21 @@ import { fileURLToPath } from "url";
 import { dirname } from "path";
 import { v4 as uuidv4 } from "uuid";
 import { encrypt } from "node-qpdf2";
-import dotenv from "dotenv";
 import { exec } from "child_process";
 import { promisify } from "util";
+import config from "../config/env.js";
+import { ensureUploadsDir, uploadsPath } from "../config/paths.js";
+import validateRequest from "../middleware/validateRequest.js";
+import { buildPublicUrl } from "../utils/requestUrl.js";
 
 // Promisify exec for async/await usage
 const execAsync = promisify(exec);
 
-// Load environment variables
-dotenv.config();
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Get QPDF path from environment variables with fallback
-const QPDF_PATH = process.env.QPDF_PATH || "C:\\Program Files\\qpdf\\bin\\qpdf.exe";
+// Get QPDF path from config
+const QPDF_PATH = config.qpdfPath;
 
 // Verify QPDF installation on startup
 try {
@@ -37,15 +37,12 @@ try {
 }
 
 const router = express.Router();
+ensureUploadsDir();
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const uploadDir = path.join(__dirname, "../../uploads");
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
+    cb(null, uploadsPath);
   },
   filename: (req, file, cb) => {
     const timestamp = Date.now();
@@ -64,13 +61,13 @@ const upload = multer({
     }
   },
   limits: {
-    fileSize: 50 * 1024 * 1024, // 50MB max file size
+    fileSize: config.maxPdfSize,
   },
 });
 
 // Helper function to get file URL
 const getFileUrl = (filename) => {
-    return `/uploads/${filename}`;
+    return `/${config.uploadDir}/${filename}`;
 };
 
 // Helper function to create output filename
@@ -134,7 +131,7 @@ router.post(
     const uniqueId = uuidv4();
     const outputFilename = customOutputName ? `${timestamp}-${uniqueId}-${customOutputName}.pdf` : `${timestamp}-${uniqueId}-merged-document.pdf`;
 
-    const outputPath = path.join(__dirname, "../../uploads", outputFilename);
+    const outputPath = path.join(uploadsPath, outputFilename);
 
     // Save the merged PDF
     const mergedPdfBytes = await mergedPdf.save();
@@ -215,7 +212,7 @@ router.post(
 
       const outputFilename = customName ? `${timestamp}-${uniqueId}-${customName}-pages-${range.start}-${range.end}.pdf` : `${timestamp}-${uniqueId}-${originalName}-pages-${range.start}-${range.end}.pdf`;
 
-      const outputPath = path.join(__dirname, "../../uploads", outputFilename);
+      const outputPath = path.join(uploadsPath, outputFilename);
 
       // Save the split PDF
       const newPdfBytes = await newPdfDoc.save();
@@ -252,6 +249,7 @@ router.post(
   "/add-text",
   upload.single("file"),
   [body("text").notEmpty().withMessage("Text is required"), body("page").isInt({ min: 1 }).withMessage("Invalid page number"), body("x").isFloat().withMessage("Invalid x coordinate"), body("y").isFloat().withMessage("Invalid y coordinate"), body("fontSize").optional().isInt({ min: 1, max: 72 })],
+  validateRequest,
   asyncHandler(async (req, res) => {
             if (!req.file) {
       return res.status(400).json({ error: "No PDF file provided" });
@@ -270,22 +268,26 @@ router.post(
     const pdfPage = pdf.getPage(pageIndex);
 
     // Add text with specified parameters
-            pdfPage.drawText(text, {
+    pdfPage.drawText(text, {
       x: parseFloat(x),
       y: parseFloat(y),
       size: parseInt(fontSize),
-      color: PDFDocument.rgb(0, 0, 0),
+      color: rgb(0, 0, 0),
     });
 
     const modifiedPdfBytes = await pdf.save();
     const outputFilename = createOutputFilename("added-text");
-    const outputPath = path.join(__dirname, "../../uploads", outputFilename);
+    const outputPath = path.join(uploadsPath, outputFilename);
     await fs.promises.writeFile(outputPath, modifiedPdfBytes);
 
     // Clean up input file
     await fs.promises.unlink(req.file.path);
 
-    res.json({ url: getFileUrl(outputFilename) });
+    res.json({
+      url: getFileUrl(outputFilename),
+      filename: outputFilename,
+      message: "Text added to PDF successfully",
+    });
   })
 );
 
@@ -294,6 +296,7 @@ router.post(
   "/add-signature",
   upload.single("file"),
   [body("signature").notEmpty().withMessage("Signature text is required"), body("page").isInt({ min: 1 }).withMessage("Invalid page number"), body("x").isFloat().withMessage("Invalid x coordinate"), body("y").isFloat().withMessage("Invalid y coordinate")],
+  validateRequest,
   asyncHandler(async (req, res) => {
             if (!req.file) {
       return res.status(400).json({ error: "No PDF file provided" });
@@ -312,26 +315,30 @@ router.post(
     const pdfPage = pdf.getPage(pageIndex);
 
     // Embed a standard font for the signature
-            const font = await pdf.embedFont(PDFDocument.StandardFonts.Helvetica);
+    const font = await pdf.embedFont(StandardFonts.Helvetica);
 
     // Draw the signature with embedded font
-            pdfPage.drawText(signature, {
+    pdfPage.drawText(signature, {
       x: parseFloat(x),
       y: parseFloat(y),
-                size: 12,
-                font,
-                color: PDFDocument.rgb(0, 0, 0),
-            });
+      size: 12,
+      font,
+      color: rgb(0, 0, 0),
+    });
 
     const modifiedPdfBytes = await pdf.save();
     const outputFilename = createOutputFilename("added-signature");
-    const outputPath = path.join(__dirname, "../../uploads", outputFilename);
+    const outputPath = path.join(uploadsPath, outputFilename);
     await fs.promises.writeFile(outputPath, modifiedPdfBytes);
 
     // Clean up input file
     await fs.promises.unlink(req.file.path);
 
-    res.json({ url: getFileUrl(outputFilename) });
+    res.json({
+      url: getFileUrl(outputFilename),
+      filename: outputFilename,
+      message: "Signature added to PDF successfully",
+    });
   })
 );
 
@@ -426,7 +433,7 @@ router.post(
     const uniqueId = uuidv4();
     const outputFilename = customOutputName ? `${timestamp}-${uniqueId}-${customOutputName}.pdf` : `${timestamp}-${uniqueId}-edited-document.pdf`;
 
-    const outputPath = path.join(__dirname, "../../uploads", outputFilename);
+    const outputPath = path.join(uploadsPath, outputFilename);
 
     // Save the edited PDF
     const editedPdfBytes = await editedPdf.save();
@@ -442,6 +449,102 @@ router.post(
       finalPageCount: editedPdf.getPageCount(),
       modifications,
       message: "PDF edited successfully",
+    });
+  })
+);
+
+router.post(
+  "/metadata",
+  upload.single("file"),
+  asyncHandler(async (req, res) => {
+    if (!req.file) {
+      return res.status(400).json({ error: "No PDF file provided" });
+    }
+
+    const pdfBytes = await fs.promises.readFile(req.file.path);
+    const pdfDoc = await PDFDocument.load(pdfBytes);
+    const {
+      title,
+      author,
+      subject,
+      keywords,
+      creator,
+      producer,
+      language,
+      outputFilename: customOutputName,
+    } = req.body;
+
+    const nextMetadata = {
+      title: pdfDoc.getTitle() || "",
+      author: pdfDoc.getAuthor() || "",
+      subject: pdfDoc.getSubject() || "",
+      keywords: (pdfDoc.getKeywords() || []).join(", "),
+      creator: pdfDoc.getCreator() || "",
+      producer: pdfDoc.getProducer() || "",
+      language: typeof pdfDoc.getLanguage === "function" ? pdfDoc.getLanguage() || "" : "",
+      creationDate: pdfDoc.getCreationDate()?.toISOString?.() || null,
+      modificationDate: pdfDoc.getModificationDate()?.toISOString?.() || null,
+      pageCount: pdfDoc.getPageCount(),
+    };
+
+    const hasUpdates = [title, author, subject, keywords, creator, producer, language].some((value) => typeof value === "string");
+
+    if (!hasUpdates) {
+      await fs.promises.unlink(req.file.path);
+      return res.json({ metadata: nextMetadata });
+    }
+
+    if (typeof title === "string") {
+      pdfDoc.setTitle(title);
+      nextMetadata.title = title;
+    }
+    if (typeof author === "string") {
+      pdfDoc.setAuthor(author);
+      nextMetadata.author = author;
+    }
+    if (typeof subject === "string") {
+      pdfDoc.setSubject(subject);
+      nextMetadata.subject = subject;
+    }
+    if (typeof keywords === "string") {
+      const keywordList = keywords
+        .split(",")
+        .map((keyword) => keyword.trim())
+        .filter(Boolean);
+      pdfDoc.setKeywords(keywordList);
+      nextMetadata.keywords = keywordList.join(", ");
+    }
+    if (typeof creator === "string") {
+      pdfDoc.setCreator(creator);
+      nextMetadata.creator = creator;
+    }
+    if (typeof producer === "string") {
+      pdfDoc.setProducer(producer);
+      nextMetadata.producer = producer;
+    }
+    if (typeof language === "string" && typeof pdfDoc.setLanguage === "function") {
+      pdfDoc.setLanguage(language);
+      nextMetadata.language = language;
+    }
+
+    pdfDoc.setModificationDate(new Date());
+    nextMetadata.modificationDate = pdfDoc.getModificationDate()?.toISOString?.() || new Date().toISOString();
+
+    const timestamp = Date.now();
+    const uniqueId = uuidv4();
+    const outputFilename = customOutputName
+      ? `${timestamp}-${uniqueId}-${customOutputName}.pdf`
+      : `${timestamp}-${uniqueId}-metadata-updated.pdf`;
+    const outputPath = path.join(uploadsPath, outputFilename);
+
+    await fs.promises.writeFile(outputPath, await pdfDoc.save());
+    await fs.promises.unlink(req.file.path);
+
+    res.json({
+      metadata: nextMetadata,
+      url: getFileUrl(outputFilename),
+      filename: outputFilename,
+      message: "PDF metadata updated successfully",
     });
   })
 );
@@ -482,7 +585,7 @@ router.post(
 
     const outputFilename = action === "remove" ? `${timestamp}-${uniqueId}-${cleanFileName}-without-password.pdf` : `${timestamp}-${uniqueId}-${cleanFileName}-protected.pdf`;
 
-    const outputPath = path.join(__dirname, "../../uploads", outputFilename);
+    const outputPath = path.join(uploadsPath, outputFilename);
 
     try {
       if (action === "remove") {
@@ -491,14 +594,15 @@ router.post(
           throw new Error("Current password is required to remove protection");
         }
 
-        // Use qpdf command directly for password removal
-        const qpdfCommand = `"${QPDF_PATH}" --password=${currentPassword} --decrypt "${req.file.path}" "${outputPath}"`;
+        // Safer command construction to prevent injection
+        const safePassword = currentPassword.replace(/[ "$`\\]/g, '\\$&');
+        const qpdfCommand = `"${QPDF_PATH}" --password="${safePassword}" --decrypt "${req.file.path}" "${outputPath}"`;
 
         try {
           await execAsync(qpdfCommand);
         } catch (cmdError) {
-          if (cmdError.message.includes("password")) {
-            return res.status(400).json({ error: "Incorrect password provided" });
+          if (cmdError.message.toLowerCase().includes("password") || cmdError.code === 2) {
+            return res.status(400).json({ error: "Incorrect password provided or invalid PDF" });
           }
           throw new Error(`Failed to remove password: ${cmdError.message}`);
         }
@@ -526,10 +630,8 @@ router.post(
       // Clean up input file
       await fs.promises.unlink(req.file.path);
 
-      // Return the processed file URL
-      const baseUrl = process.env.BASE_URL || "http://localhost:5000";
       res.json({
-        url: `${baseUrl}${getFileUrl(outputFilename)}`,
+        url: buildPublicUrl(req, getFileUrl(outputFilename)),
         filename: outputFilename,
         message: action === "remove" ? "Password removed successfully" : "PDF protected successfully",
       });

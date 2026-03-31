@@ -1,10 +1,11 @@
 import React, { useState } from "react";
-import { Box, Container, Grid, Paper, Typography, TextField, Button, Select, MenuItem, FormControl, InputLabel, Tab, Tabs, Alert, IconButton, Chip, Tooltip, Divider, List, ListItem, ListItemText, ListItemSecondaryAction, Dialog, DialogTitle, DialogContent, DialogActions, Accordion, AccordionSummary, AccordionDetails, Slider } from "@mui/material";
-import { ContentCopy, CompareArrows, Info, Clear, ExpandMore, Warning, CheckCircle, InfoOutlined, Search, Save, Bookmark, BookmarkBorder } from "@mui/icons-material";
+import { Box, Container, Grid, Paper, Typography, TextField, Button, Select, MenuItem, FormControl, InputLabel, Tab, Tabs, Alert, IconButton, Chip, Tooltip, Divider, List, ListItem, ListItemText, ListItemSecondaryAction, Accordion, AccordionSummary, AccordionDetails, Slider } from "@mui/material";
+import { ContentCopy, CompareArrows, Info, Clear, ExpandMore, Warning, CheckCircle, InfoOutlined, Search, Bookmark } from "@mui/icons-material";
 import ReactMarkdown from "react-markdown";
 import { textToolsApi } from "../services/api";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
+import ToolPageHeader from "../components/ToolPageHeader";
 
 function TabPanel(props) {
   const { children, value, index, ...other } = props;
@@ -15,57 +16,6 @@ function TabPanel(props) {
     </div>
   );
 }
-
-const commonPatterns = [
-  {
-    name: "Email",
-    pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$",
-    description: "Matches standard email addresses",
-    example: "user@example.com",
-  },
-  {
-    name: "URL",
-    pattern: "^(https?:\\/\\/)?([\\da-z.-]+)\\.([a-z.]{2,6})([/\\w .-]*)*\\/?$",
-    description: "Matches URLs with or without protocol",
-    example: "https://example.com",
-  },
-  {
-    name: "Phone (US)",
-    pattern: "^\\+?1?\\d{10}$",
-    description: "Matches US phone numbers",
-    example: "+1234567890",
-  },
-  {
-    name: "Date (YYYY-MM-DD)",
-    pattern: "^\\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01])$",
-    description: "Matches dates in YYYY-MM-DD format",
-    example: "2024-03-28",
-  },
-  {
-    name: "Password (8+ chars, 1 uppercase, 1 lowercase, 1 number)",
-    pattern: "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)[a-zA-Z\\d]{8,}$",
-    description: "Matches passwords with minimum requirements",
-    example: "Password123",
-  },
-  {
-    name: "IPv4",
-    pattern: "^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}$",
-    description: "Matches IPv4 addresses",
-    example: "192.168.1.1",
-  },
-  {
-    name: "Credit Card",
-    pattern: "^(?:4[0-9]{12}(?:[0-9]{3})?|5[1-5][0-9]{14}|3[47][0-9]{13}|3(?:0[0-5]|[68][0-9])[0-9]{11}|6(?:011|5[0-9]{2})[0-9]{12}|(?:2131|1800|35\\d{3})\\d{11})$",
-    description: "Matches major credit card numbers",
-    example: "4111111111111111",
-  },
-  {
-    name: "Time (24h)",
-    pattern: "^([01]\\d|2[0-3]):([0-5]\\d)$",
-    description: "Matches time in 24-hour format",
-    example: "23:59",
-  },
-];
 
 const regexCategories = [
   {
@@ -267,13 +217,9 @@ function TextTools() {
   const [regexMatches, setRegexMatches] = useState([]);
   const [regexError, setRegexError] = useState("");
   const [regexFlags, setRegexFlags] = useState("g");
-  const [selectedPattern, setSelectedPattern] = useState(null);
-  const [patternDialogOpen, setPatternDialogOpen] = useState(false);
   const [highlightedText, setHighlightedText] = useState("");
   const [captureGroups, setCaptureGroups] = useState([]);
-  const [regexExplanation, setRegexExplanation] = useState("");
   const [isValidRegex, setIsValidRegex] = useState(true);
-  const [paragraphs, setParagraphs] = useState(1);
   const [markdownText, setMarkdownText] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -288,7 +234,6 @@ function TextTools() {
   const [selectedPatternTab, setSelectedPatternTab] = useState(0);
   const [patternParts, setPatternParts] = useState([]);
   const [savedPatterns, setSavedPatterns] = useState([]);
-  const [showPatternLibrary, setShowPatternLibrary] = useState(false);
   const [loremType, setLoremType] = useState("paragraphs"); // "paragraphs" or "words"
   const [customCount, setCustomCount] = useState(1);
   const [markdownExample] = useState(`# Markdown Guide
@@ -377,6 +322,21 @@ function example() {
             .join(" ")
         );
         break;
+      case "sentencecase":
+        setOutputText(
+          inputText
+            .toLowerCase()
+            .replace(/(^\s*\w|[.!?]\s*\w)/g, (c) => c.toUpperCase())
+        );
+        break;
+      case "inversecase":
+        setOutputText(
+          inputText
+            .split("")
+            .map((c) => (c === c.toUpperCase() ? c.toLowerCase() : c.toUpperCase()))
+            .join("")
+        );
+        break;
       default:
         setOutputText(inputText);
     }
@@ -396,11 +356,11 @@ function example() {
     }
   };
 
-  const handleRegexTest = async () => {
+  const handleRegexTest = async (patternOverride = regexPattern) => {
     try {
       setLoading(true);
       setError("");
-      const response = await textToolsApi.testRegex(inputText, regexPattern, regexFlags);
+      const response = await textToolsApi.testRegex(inputText, patternOverride, regexFlags);
       setRegexMatches(response.data.matches);
       setRegexError(response.data.error);
       setHighlightedText(response.data.highlightedText);
@@ -417,17 +377,7 @@ function example() {
 
   const handlePatternSelect = (pattern) => {
     setRegexPattern(pattern.pattern);
-    setShowPatternLibrary(false);
-    handleRegexTest();
-  };
-
-  const handleRegexFlagsChange = (flag) => {
-    setRegexFlags((prev) => {
-      if (prev.includes(flag)) {
-        return prev.replace(flag, "");
-      }
-      return prev + flag;
-    });
+    handleRegexTest(pattern.pattern);
   };
 
   const handleLoremIpsum = async () => {
@@ -438,19 +388,6 @@ function example() {
       setOutputText(response.data.result);
     } catch (err) {
       setError(err.response?.data?.error || "Failed to generate Lorem Ipsum");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleMarkdownPreview = async () => {
-    try {
-      setLoading(true);
-      setError("");
-      const response = await textToolsApi.previewMarkdown(markdownText);
-      setOutputText(response.data.html);
-    } catch (err) {
-      setError(err.response?.data?.error || "Failed to preview markdown");
     } finally {
       setLoading(false);
     }
@@ -497,10 +434,12 @@ function example() {
 
   return (
     <Container maxWidth="xl">
-      <Box sx={{ py: 1 }}>
-        <Typography variant="h5" component="h1" gutterBottom sx={{ mt: 0, mb: 1 }}>
-          Text Tools
-        </Typography>
+      <Box sx={{ py: 2 }}>
+        <ToolPageHeader
+          title="Text Tools"
+          description="Handle common text workflows including case conversion, diff review, regex testing, markdown preview, statistics, and quick encoding utilities."
+          chips={["Diff", "Regex", "Markdown", "Statistics"]}
+        />
 
         {error && (
           <Alert severity="error" sx={{ mb: 1 }}>
@@ -515,6 +454,8 @@ function example() {
             <Tab label="Regex Tester" />
             <Tab label="Lorem Ipsum" />
             <Tab label="Markdown Preview" />
+            <Tab label="Text Statistics" />
+            <Tab label="Base64" />
           </Tabs>
 
           <TabPanel value={tabValue} index={0}>
@@ -530,6 +471,8 @@ function example() {
                       <MenuItem value="uppercase">UPPERCASE</MenuItem>
                       <MenuItem value="lowercase">lowercase</MenuItem>
                       <MenuItem value="titlecase">Title Case</MenuItem>
+                      <MenuItem value="sentencecase">Sentence case</MenuItem>
+                      <MenuItem value="inversecase">iNVERSE cASE</MenuItem>
                     </Select>
                   </FormControl>
                   <Button variant="contained" onClick={handleCaseConversion} sx={{ mb: 2 }}>
@@ -554,7 +497,7 @@ function example() {
           <TabPanel value={tabValue} index={1}>
             <Grid container spacing={3}>
               <Grid item xs={12}>
-                <Box sx={{ mb: 3, display: "flex", alignItems: "center", gap: 2 }}>
+                <Box sx={{ mb: 3, display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
                   <FormControl size="small" sx={{ minWidth: 120 }}>
                     <InputLabel>Diff Mode</InputLabel>
                     <Select value={diffMode} label="Diff Mode" onChange={(e) => setDiffMode(e.target.value)}>
@@ -600,7 +543,7 @@ function example() {
                 </Box>
               </Grid>
               <Grid item xs={12}>
-                <Box sx={{ display: "flex", gap: 2, alignItems: "center", mb: 2 }}>
+                <Box sx={{ display: "flex", gap: 2, alignItems: "center", mb: 2, flexWrap: "wrap" }}>
                   <Button variant="contained" onClick={handleTextDiff} disabled={loading || !text1 || !text2}>
                     Compare Texts
                   </Button>
@@ -1283,6 +1226,106 @@ function example() {
                     {markdownText}
                   </ReactMarkdown>
                 </Paper>
+              </Grid>
+            </Grid>
+          </TabPanel>
+
+          {/* Text Statistics Tab */}
+          <TabPanel value={tabValue} index={5}>
+            <Grid container spacing={3}>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  multiline
+                  rows={10}
+                  label="Enter text to analyze"
+                  value={inputText}
+                  onChange={(e) => setInputText(e.target.value)}
+                  variant="outlined"
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <Paper sx={{ p: 3 }}>
+                  <Typography variant="h6" gutterBottom>Statistics</Typography>
+                  {(() => {
+                    const text = inputText || '';
+                    const chars = text.length;
+                    const charsNoSpaces = text.replace(/\s/g, '').length;
+                    const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+                    const sentences = text.trim() ? text.split(/[.!?]+/).filter(s => s.trim()).length : 0;
+                    const paragraphs = text.trim() ? text.split(/\n\s*\n/).filter(p => p.trim()).length : 0;
+                    const lines = text ? text.split('\n').length : 0;
+                    const readingTime = Math.ceil(words / 200);
+                    return (
+                      <Grid container spacing={2}>
+                        {[
+                          ['Characters', chars],
+                          ['Characters (no spaces)', charsNoSpaces],
+                          ['Words', words],
+                          ['Sentences', sentences],
+                          ['Paragraphs', paragraphs],
+                          ['Lines', lines],
+                          ['Reading Time', `${readingTime} min`],
+                        ].map(([label, value]) => (
+                          <Grid item xs={6} key={label}>
+                            <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'grey.50' }}>
+                              <Typography variant="h5" color="primary">{value}</Typography>
+                              <Typography variant="body2" color="text.secondary">{label}</Typography>
+                            </Paper>
+                          </Grid>
+                        ))}
+                      </Grid>
+                    );
+                  })()}
+                </Paper>
+              </Grid>
+            </Grid>
+          </TabPanel>
+
+          {/* Base64 Encoder/Decoder Tab */}
+          <TabPanel value={tabValue} index={6}>
+            <Grid container spacing={3}>
+              <Grid item xs={12} md={5}>
+                <TextField
+                  fullWidth
+                  multiline
+                  rows={8}
+                  label="Input Text"
+                  value={inputText}
+                  onChange={(e) => setInputText(e.target.value)}
+                  variant="outlined"
+                />
+              </Grid>
+              <Grid item xs={12} md={2} sx={{ display: 'flex', flexDirection: 'column', gap: 2, justifyContent: 'center' }}>
+                <Button
+                  variant="contained"
+                  onClick={() => {
+                    try { setOutputText(btoa(unescape(encodeURIComponent(inputText)))); setError(null); }
+                    catch(e) { setError('Failed to encode'); }
+                  }}
+                >
+                  Encode →
+                </Button>
+                <Button
+                  variant="outlined"
+                  onClick={() => {
+                    try { setInputText(decodeURIComponent(escape(atob(outputText)))); setError(null); }
+                    catch(e) { setError('Invalid Base64 string'); }
+                  }}
+                >
+                  ← Decode
+                </Button>
+              </Grid>
+              <Grid item xs={12} md={5}>
+                <TextField
+                  fullWidth
+                  multiline
+                  rows={8}
+                  label="Base64 Output"
+                  value={outputText}
+                  onChange={(e) => setOutputText(e.target.value)}
+                  variant="outlined"
+                />
               </Grid>
             </Grid>
           </TabPanel>

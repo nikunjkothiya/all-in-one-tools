@@ -18,6 +18,7 @@ import {
 } from '@mui/material';
 import InfoIcon from '@mui/icons-material/Info';
 import { dataToolsApi } from '../services/api';
+import ToolPageHeader from '../components/ToolPageHeader';
 
 const DataTools = () => {
     const [input, setInput] = useState('');
@@ -108,14 +109,13 @@ const DataTools = () => {
     };
 
     return (
-        <Container maxWidth="lg">
-            <Box sx={{ my: 4 }}>
-                <Typography variant="h4" component="h1" gutterBottom>
-                    Data Tools
-                </Typography>
-                <Typography variant="body1" color="text.secondary" paragraph>
-                    Convert, validate, and transform data between different formats. Select your input format, paste your data, and choose an operation.
-                </Typography>
+        <Container maxWidth="xl">
+            <Box sx={{ py: 2 }}>
+                <ToolPageHeader
+                    title="Data Tools"
+                    description="Convert, validate, and transform structured data across JSON, XML, CSV, and YAML without leaving the browser."
+                    chips={["Convert", "Validate", "Transform"]}
+                />
 
                 {error && (
                     <Alert severity="error" sx={{ mb: 2 }}>
@@ -197,7 +197,7 @@ const DataTools = () => {
                     </Grid>
 
                     <Grid item xs={12}>
-                        <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', alignItems: 'center' }}>
+                        <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' }}>
                             <Tooltip title={`Convert from ${format.toUpperCase()} to ${targetFormat.toUpperCase()}`}>
                                 <Button
                                     variant="contained"

@@ -2,6 +2,7 @@ import express from 'express';
 import { body } from 'express-validator';
 import crypto from 'crypto';
 import bcrypt from 'bcrypt';
+import validateRequest from "../middleware/validateRequest.js";
 
 const router = express.Router();
 
@@ -13,6 +14,7 @@ router.post(
         body('algorithm').isIn(['aes-256-cbc', 'aes-256-gcm', 'des-ede3-cbc']).withMessage('Invalid algorithm'),
         body('key').notEmpty().withMessage('Key is required'),
     ],
+    validateRequest,
     (req, res) => {
         try {
             const { text, algorithm, key } = req.body;
@@ -80,6 +82,7 @@ router.post(
         body('iv').notEmpty().withMessage('IV is required'),
         body('authTag').optional(),
     ],
+    validateRequest,
     (req, res) => {
         try {
             const { text, algorithm, key, iv, authTag } = req.body;
@@ -131,6 +134,7 @@ router.post(
         body('password').notEmpty().withMessage('Password is required'),
         body('algorithm').isIn(['bcrypt', 'sha256', 'sha512']).withMessage('Invalid algorithm'),
     ],
+    validateRequest,
     async (req, res) => {
         try {
             const { password, algorithm } = req.body;
@@ -159,6 +163,7 @@ router.post(
         body('hashed').notEmpty().withMessage('Hashed password is required'),
         body('algorithm').isIn(['bcrypt', 'sha256']).withMessage('Invalid algorithm'),
     ],
+    validateRequest,
     async (req, res) => {
         try {
             const { password, hashed, algorithm } = req.body;
@@ -185,6 +190,7 @@ router.post(
         body('data').notEmpty().withMessage('Data is required'),
         body('fields').notEmpty().isArray().withMessage('Fields to anonymize are required')
     ],
+    validateRequest,
     (req, res) => {
         try {
             const { data, fields } = req.body;
@@ -217,6 +223,7 @@ router.post(
         body('fields').notEmpty().isArray().withMessage('Fields to mask are required'),
         body('maskChar').optional().isString().withMessage('Mask character must be a string')
     ],
+    validateRequest,
     (req, res) => {
         try {
             const { data, fields, maskChar = '*' } = req.body;
@@ -225,10 +232,15 @@ router.post(
             for (const field of fields) {
                 if (maskedData[field]) {
                     const value = String(maskedData[field]);
-                    // Keep first and last characters, mask the rest
-                    const maskedValue = value.charAt(0) +
-                        maskChar.repeat(value.length - 2) +
-                        value.charAt(value.length - 1);
+                    let maskedValue;
+                    if (value.length <= 2) {
+                        maskedValue = maskChar.repeat(value.length);
+                    } else {
+                        // Keep first and last characters, mask the rest
+                        maskedValue = value.charAt(0) +
+                            maskChar.repeat(value.length - 2) +
+                            value.charAt(value.length - 1);
+                    }
                     maskedData[field] = maskedValue;
                 }
             }

@@ -6,7 +6,6 @@ const Footer = () => {
   const theme = useTheme();
   const currentYear = new Date().getFullYear();
 
-  // Footer links - simplified to only tools and contact
   const tools = [
     { name: "Text Tools", path: "/text-tools" },
     { name: "Image Tools", path: "/image-tools" },
@@ -14,6 +13,7 @@ const Footer = () => {
     { name: "Media Tools", path: "/media-tools" },
     { name: "Misc Tools", path: "/misc-tools" },
     { name: "Loader Tools", path: "/loader-tools" },
+    { name: "Developer Tools", path: "/developer-tools" },
     { name: "Web Tools", path: "/web-tools" },
     { name: "Data Tools", path: "/data-tools" },
     { name: "Privacy Tools", path: "/privacy-tools" },
@@ -24,16 +24,24 @@ const Footer = () => {
     <Box
       component="footer"
       sx={{
-        py: 2,
+        py: 3,
         backgroundColor: "rgba(0, 0, 0, 0.02)",
         borderTop: `1px solid ${theme.palette.divider}`,
         mt: "auto",
       }}
     >
       <Container maxWidth="xl">
-        <Grid container spacing={1} justifyContent="space-between">
-          {/* Tools Column */}
-          <Grid item xs={12} md={8}>
+        <Grid container spacing={3} justifyContent="space-between">
+          <Grid item xs={12} md={4}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }} gutterBottom>
+              All-in-One Tools
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 420 }}>
+              A browser-based toolkit for practical work across documents, media, web utilities, data cleanup, privacy, and developer workflows.
+            </Typography>
+          </Grid>
+
+          <Grid item xs={12} md={5}>
             <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }} gutterBottom>
               Tools
             </Typography>
@@ -61,10 +69,25 @@ const Footer = () => {
             </Grid>
           </Grid>
 
-          {/* Contact Column */}
-          <Grid item xs={12} md={4}>
+          <Grid item xs={12} md={3}>
             <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }} gutterBottom>
-              Contact Us
+              Platform
+            </Typography>
+            <Typography
+              component={Link}
+              to="/about"
+              variant="body2"
+              color="text.secondary"
+              sx={{
+                textDecoration: "none",
+                display: "block",
+                mb: 1,
+                "&:hover": {
+                  color: theme.palette.primary.main,
+                },
+              }}
+            >
+              About
             </Typography>
             <Typography
               component={Link}
@@ -82,10 +105,26 @@ const Footer = () => {
             >
               Contact
             </Typography>
+            <Typography
+              component={Link}
+              to="/admin/login"
+              variant="body2"
+              color="text.secondary"
+              sx={{
+                textDecoration: "none",
+                display: "block",
+                mb: 1,
+                "&:hover": {
+                  color: theme.palette.primary.main,
+                },
+              }}
+            >
+              Admin Login
+            </Typography>
           </Grid>
         </Grid>
 
-        <Divider sx={{ my: 1 }} />
+        <Divider sx={{ my: 2 }} />
 
         {/* Copyright */}
         <Typography variant="body2" color="text.secondary" align="center" sx={{ fontSize: "0.75rem" }}>

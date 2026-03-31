@@ -8,8 +8,11 @@ import { Readable } from 'stream';
 import yaml from 'js-yaml';
 import xml2js from 'xml2js';
 import { promisify } from 'util';
+import { ensureUploadsDir, uploadsPath } from "../config/paths.js";
+import validateRequest from "../middleware/validateRequest.js";
 
 const router = express.Router();
+ensureUploadsDir();
 const parseXml = promisify(xml2js.parseString);
 const xmlBuilder = new xml2js.Builder();
 
@@ -55,7 +58,7 @@ const convertToFormat = async (data, format) => {
                 if (!Array.isArray(data)) {
                     data = [data];
                 }
-                const outputPath = path.join('uploads', `converted_${Date.now()}.csv`);
+                const outputPath = path.join(uploadsPath, `converted_${Date.now()}.csv`);
                 const csvHeaders = Object.keys(data[0]).map(key => ({
                     id: key,
                     title: key
@@ -86,6 +89,7 @@ router.post(
         body('format').isIn(['json', 'xml', 'csv', 'yaml']).withMessage('Invalid input format'),
         body('targetFormat').isIn(['json', 'xml', 'csv', 'yaml']).withMessage('Invalid target format'),
     ],
+    validateRequest,
     async (req, res) => {
         try {
             const { data, format, targetFormat } = req.body;
@@ -114,6 +118,7 @@ router.post(
         body('data').notEmpty().withMessage('Data is required'),
         body('format').isIn(['json', 'xml', 'csv', 'yaml']).withMessage('Invalid format'),
     ],
+    validateRequest,
     async (req, res) => {
         try {
             const { data, format } = req.body;
@@ -136,6 +141,7 @@ router.post(
         body('data').notEmpty().withMessage('Data is required'),
         body('format').isIn(['json', 'xml', 'csv', 'yaml']).withMessage('Invalid format'),
     ],
+    validateRequest,
     async (req, res) => {
         try {
             const { data, format } = req.body;
